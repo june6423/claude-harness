@@ -539,7 +539,7 @@ Server `POSTECH_900_A6000_8`, container `VLM_EGG_QUAL_A6000_001`, a new test fol
 
 | Check | Result |
 |---|---|
-| Unit tests | 63 PASS |
+| Unit tests | 57 PASS |
 | DT (Sonnet) publishes APPROVED with the approval that the researcher typed | Published |
 | DT copies the approval from a file that another tower wrote | Blocked by `dt_guard` with the reason |
 | DT edits `PROJECT_STATE.md` over a 600-character test limit | Blocked by `dt_guard`. The file stayed unchanged |

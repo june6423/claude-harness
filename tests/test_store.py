@@ -145,11 +145,32 @@ class StoreTest(unittest.TestCase):
         wrong_hash = verdict.ref[:-1] + ("0" if verdict.ref[-1] != "0" else "1")
         self.assertRefused("task", edit_json(task, pre_run_verdict=wrong_hash), "SHA-256 does not match")
 
+    def test_verdict_on_promoting_predecessor_is_accepted(self):
+        text = fixture("handoff_transplant.md")
+        validation = self.store.publish("handoff", edit_markdown(
+            text, authorization="VALIDATION_RUN", full_run_condition="ALL_PRE_RUN_GATES_VALID"), "DT")
+        verdict = self.store.publish("verdict", fixture("verdict_pre_run.md", HANDOFF_REF=validation.ref), "VT")
+        full = self.store.publish("handoff", edit_markdown(text, revision=2, predecessor=validation.ref), "DT")
+        task = fixture("task_transplant_full.json", HANDOFF_REF=full.ref, VERDICT_REF=verdict.ref)
+        self.store.publish("task", task, "ET")
+        changed = parse("handoff", text)[0]["gates"]
+        changed[0]["check"] = "A different check."
+        third = self.store.publish("handoff", edit_markdown(text, revision=3, predecessor=full.ref, gates=changed), "DT")
+        task = fixture("task_transplant_full.json", HANDOFF_REF=third.ref, VERDICT_REF=verdict.ref)
+        self.assertRefused("task", task, "names a different handoff")
+
     def test_handoff_task_authorization_matrix(self):
         handoff = self.publish_handoff()  # APPROVED / FULL_RUN
         task = fixture("task_transplant_full.json", HANDOFF_REF=handoff.ref, VERDICT_REF="NONE")
         validation = edit_json(task, source="HANDOFF", user_request="NONE", execution_class="VALIDATION")
-        self.assertRefused("task", validation, "needs authorization VALIDATION_RUN")
+        self.store.publish("task", validation, "ET")  # FULL_RUN also covers VALIDATION runs
+        text = fixture("handoff_transplant.md")
+        implement_only = edit_markdown(text, revision=2, predecessor=handoff.ref, authorization="IMPLEMENT_ONLY",
+                                       gates=[{"id": "G1", "phase": "POST_RUN", "check": "One check."}])
+        second = self.store.publish("handoff", implement_only, "DT")
+        task = fixture("task_transplant_full.json", HANDOFF_REF=second.ref, VERDICT_REF="NONE")
+        validation = edit_json(task, source="HANDOFF", user_request="NONE", execution_class="VALIDATION")
+        self.assertRefused("task", validation, "needs authorization VALIDATION_RUN or FULL_RUN")
 
     def test_task_schema_rules(self):
         handoff = self.publish_handoff()

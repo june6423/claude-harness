@@ -460,6 +460,48 @@ After ET publishes a task, ET starts `harness wait <task>` as a background comma
 3. The researcher starts the executor daemon and the towers.
 4. `git push` to GitHub through the sandbox proxy was not tested. `git ls-remote` to GitHub works.
 
+## 12. Full flow and SSH tests (2026-10-08)
+
+### 12.1 Changes from the tests
+
+1. A FULL_RUN handoff also authorizes VALIDATION runs. The old rule refused them, but the main flow needs a VALIDATION run before the PRE_RUN verdict.
+2. A PRE_RUN verdict can bind the predecessor handoff of the task handoff. The predecessor must have `full_run_condition: ALL_PRE_RUN_GATES_VALID`, the successor must have FULL_RUN, and both must have the same PRE_RUN gates.
+3. The daemon reaps exited workers. A zombie worker counts as dead, so the daemon starts a new worker.
+4. The executor creates empty log files for a run that prints nothing.
+
+### 12.2 Full flow with three towers
+
+Local transport with the test docker. DT, ET, and VT ran as Sonnet background sessions with the sandbox on. The researcher gave one approval to DT.
+
+| Step | Record or message |
+|---|---|
+| DT publishes the handoff, then revisions 2 and 3 (VALIDATION_RUN with the promotion condition, then FULL_RUN) | HANDOFF-DEMO-2-R1 to R3 |
+| ET implements, commits, pushes, and runs VALIDATION | TASK-DEMO-2-001, RESULT PASS |
+| ET reports and asks VT | REPORT-DEMO-2-001, REVIEW_REQUEST |
+| VT gives the PRE_RUN verdict | VERDICT-DEMO-2-001, VALID |
+| ET runs FULL with the verdict | TASK-DEMO-2-002, RESULT PASS |
+| VT gives the POST_RUN verdict | VERDICT-DEMO-2-002, VALID |
+| DT reports to the researcher in Korean | Final message of DT |
+
+Two QUESTION messages from ET to DT show the two rule conflicts that section 12.1 items 1 and 2 fix. ET did not get around a rule. `harness verify` gave 0 problems.
+
+### 12.3 SSH server test
+
+Server `POSTECH_900_A6000_8`, container `VLM_EGG_QUAL_A6000_001`, a new test folder `/home/vision/dongjun/harness-test` with its own bare origin. The test did not use an existing checkout. The test folder was removed after the test.
+
+| Task | Result |
+|---|---|
+| gpu-status | PASS, 8 GPUs listed |
+| run `scripts/check.sh` | PASS, git commit match, image and GPU list recorded, output hash |
+| run `scripts/fail.sh` | FAIL, exit code 5, stderr tail in the message |
+| run `scripts/slow.sh`, worker killed after launch | Daemon restarted the worker, the worker reattached, one launch, complete logs, PASS |
+
+### 12.4 Limits found
+
+1. ET cannot push over SSH in the sandbox. The sandbox network allows HTTP hosts only. A real project needs a GitHub origin or a sandbox exception.
+2. No server has `claude`, so `inspect` mode does not work on the servers yet.
+3. VT cannot read output files. It checks hashes in the result records.
+
 ## 9. Open decisions
 
 None. The researcher accepted O1 to O3 as D9 to D11.

@@ -47,6 +47,7 @@ def read_json(path: Path) -> dict[str, Any]:
 
 
 def pid_alive(pid: Any) -> bool:
+    """True when the process exists and is not a zombie."""
     if not isinstance(pid, int) or pid <= 0:
         return False
     try:
@@ -55,7 +56,22 @@ def pid_alive(pid: Any) -> bool:
         return False
     except PermissionError:
         return True
-    return True
+    try:
+        state = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0]
+    except (OSError, IndexError):
+        return True
+    return state != "Z"
+
+
+def reap_children() -> None:
+    """Collect exited worker processes so that they do not stay as zombies."""
+    while True:
+        try:
+            pid, _ = os.waitpid(-1, os.WNOHANG)
+        except ChildProcessError:
+            return
+        if pid == 0:
+            return
 
 
 class Paths:
@@ -114,6 +130,7 @@ class Executor:
     def step(self) -> list[str]:
         """Recover dead workers, then claim and start new tasks. Return started task IDs."""
         started = []
+        reap_children()
         self.paths.claims.mkdir(parents=True, exist_ok=True)
         for claim in sorted(self.paths.claims.glob("*.json")):
             data = read_json(claim)
@@ -207,6 +224,8 @@ class Worker:
     def publish_result(self, **fields: Any) -> None:
         if self.store.path_of(f"RESULT-{self.task_id}").exists():
             return
+        for log in (self.stdout_log, self.stderr_log):
+            log.touch(exist_ok=True)  # a silent run still gets the log files that the result names
         result = {
             "kind": "result", "task": self.record.ref, "transport": "OK", "preflight": "NOT_RUN",
             "exit_code": None, "outcome": "FAIL", "git": {}, "runtime": {}, "outputs": [],

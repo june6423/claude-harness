@@ -225,10 +225,12 @@ class Store:
             elif handoff:
                 if handoff.fields["status"] != "APPROVED":
                     errors.append("the handoff is not APPROVED")
-                needed = {"VALIDATION": "VALIDATION_RUN", "FULL": "FULL_RUN"}.get(fields["execution_class"])
-                if needed and handoff.fields["authorization"] != needed:
+                # FULL_RUN also covers the VALIDATION runs that come before the VT PRE_RUN verdict.
+                allowed = {"VALIDATION": ("VALIDATION_RUN", "FULL_RUN"), "FULL": ("FULL_RUN",)}.get(
+                    fields["execution_class"])
+                if allowed and handoff.fields["authorization"] not in allowed:
                     errors.append(f"execution_class {fields['execution_class']} needs authorization "
-                                  f"{needed}, the handoff has {handoff.fields['authorization']}")
+                                  f"{' or '.join(allowed)}, the handoff has {handoff.fields['authorization']}")
         if fields["execution_class"] == "FULL" and fields["pre_run_verdict"] != NONE:
             verdict = resolve(fields["pre_run_verdict"], "verdict")
             if verdict:
@@ -237,7 +239,7 @@ class Store:
                     (verdict.fields.get("overall") == "VALID", "the pre_run_verdict is not VALID"),
                     (verdict.fields.get("subject", {}).get("commit") == fields["commit"],
                      "the pre_run_verdict names a different commit"),
-                    (verdict.fields.get("handoff") == fields["handoff"],
+                    (self._verdict_handoff_matches(verdict.fields.get("handoff"), fields["handoff"]),
                      "the pre_run_verdict names a different handoff"),
                 )
                 errors.extend(message for passed, message in checks if not passed)
@@ -252,6 +254,26 @@ class Store:
                 errors.append(f"server {fields['server']!r} is not in config.json")
             elif fields["repo"] not in (server.get("repos") or {}):
                 errors.append(f"repo {fields['repo']!r} is not configured for server {fields['server']!r}")
+
+    def _verdict_handoff_matches(self, verdict_handoff: str | None, task_handoff: str) -> bool:
+        """A PRE_RUN verdict binds the task handoff, or the predecessor that set
+        ALL_PRE_RUN_GATES_VALID with the same PRE_RUN gates (the promotion to FULL_RUN)."""
+        if verdict_handoff == task_handoff:
+            return True
+        try:
+            successor = self.resolve(task_handoff, "handoff")
+            if successor.fields["predecessor"] != verdict_handoff:
+                return False
+            predecessor = self.resolve(verdict_handoff, "handoff")
+        except RecordError:
+            return False
+
+        def pre_run(record: Record) -> list:
+            return sorted((g["id"], g["check"]) for g in record.fields["gates"] if g["phase"] == "PRE_RUN")
+
+        return (predecessor.fields["full_run_condition"] == "ALL_PRE_RUN_GATES_VALID"
+                and successor.fields["authorization"] == "FULL_RUN"
+                and pre_run(predecessor) == pre_run(successor))
 
     def _check_verdict(self, fields: dict[str, Any], resolve, errors: list[str]) -> str:
         handoff = resolve(fields["handoff"], "handoff")

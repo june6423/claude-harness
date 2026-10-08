@@ -111,6 +111,7 @@ class ExecutorTest(unittest.TestCase):
     def test_missing_output(self):
         result = self.run_task("scripts/silent.sh")
         self.assertEqual(result["outcome"], "FAIL")
+        self.assertEqual((self.root / result["logs"]["stdout"]).read_text(), "")
         self.assertEqual(result["missing_outputs"], ["run/metrics.json"])
 
     def test_entrypoint_not_executable(self):
@@ -178,6 +179,15 @@ class ExecutorTest(unittest.TestCase):
         for task in (first, second):
             self.assertEqual(self.store.load(f"RESULT-{task.record_id}").fields["outcome"], "PASS")
         self.assertTrue(all(row["result"] for row in executor.status()))
+
+    def test_zombie_counts_as_dead(self):
+        from harness.executor import pid_alive, reap_children
+        process = subprocess.Popen(["true"])
+        time.sleep(0.3)
+        self.assertFalse(pid_alive(process.pid))  # exited but not reaped: a zombie
+        reap_children()
+        self.assertFalse(pid_alive(process.pid))
+        process.returncode = 0
 
     def test_dead_worker_is_restarted(self):
         task = self.task("scripts/ok.sh")

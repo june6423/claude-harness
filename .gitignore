@@ -1,2 +1,14 @@
 __pycache__/
 .harness-data-root
+# Placeholders for the Claude Code sandbox (harness/tower.py)
+/.gitconfig
+/.gitmodules
+/.bashrc
+/.bash_profile
+/.zshrc
+/.zprofile
+/.profile
+/.ripgreprc
+/.mcp.json
+/.vscode/
+/.idea/

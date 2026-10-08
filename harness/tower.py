@@ -11,6 +11,11 @@ from .records import RecordError
 from .store import REPO_ROOT
 
 TOWERS = ("dt", "et", "vt")
+# Files that the Claude Code sandbox covers in the working directory (list from Claude Code 2.1.294).
+# bubblewrap fails when it must create one of them itself and part of the directory is read-only.
+SANDBOX_PLACEHOLDERS = (".gitconfig", ".gitmodules", ".bashrc", ".bash_profile", ".zshrc", ".zprofile",
+                        ".profile", ".ripgreprc", ".mcp.json")
+SANDBOX_PLACEHOLDER_DIRS = (".vscode", ".idea")
 
 
 def render_settings(tower: str, data_root: Path, repo: Path = REPO_ROOT) -> Path:
@@ -22,6 +27,18 @@ def render_settings(tower: str, data_root: Path, repo: Path = REPO_ROOT) -> Path
     config = json.loads(config_path.read_text(encoding="utf-8")) if config_path.exists() else {}
     if not config.get("towers", {}).get("sandbox", False):
         settings.pop("sandbox", None)
+    else:
+        # The sandbox must create placeholder files (such as .gitconfig) at the top of the
+        # working directory, so deny writes to each repository entry, not to the directory.
+        for name in SANDBOX_PLACEHOLDERS:
+            placeholder = repo / name
+            if not placeholder.exists():
+                placeholder.write_text('{"mcpServers": {}}\n' if name == ".mcp.json" else "", encoding="utf-8")
+        for name in SANDBOX_PLACEHOLDER_DIRS:
+            (repo / name).mkdir(exist_ok=True)
+        filesystem = settings["sandbox"]["filesystem"]
+        filesystem["denyWrite"] = [p for p in filesystem["denyWrite"] if p != str(repo)] + sorted(
+            str(entry) for entry in repo.iterdir() if entry.name not in SANDBOX_PLACEHOLDERS + SANDBOX_PLACEHOLDER_DIRS)
     settings["env"] = {**settings.get("env", {}), "HARNESS_DATA_ROOT": str(data_root)}
     text = json.dumps(settings, indent=2) + "\n"
     target = data_root / "runtime" / "settings" / f"{tower}.json"

@@ -408,8 +408,12 @@ The `local` transport runs commands on this machine. Tests use it.
 
 ### 11.3 Sandbox
 
-The settings templates contain a Bash sandbox block. `harness tower start` keeps it only when `config.json` has `"towers": {"sandbox": true}`.
-On this machine the sandbox cannot start. Ubuntu 24.04 sets `kernel.apparmor_restrict_unprivileged_userns=1`, and bubblewrap then fails. A root change (an AppArmor profile for bubblewrap, or the sysctl) is necessary before the sandbox can be on.
+The settings templates contain a Bash sandbox block. `harness tower start` keeps it only when `config.json` has `"towers": {"sandbox": true}`. The `faculty-opsd` data root enables it.
+
+1. Ubuntu 24.04 blocks unprivileged user namespaces (`kernel.apparmor_restrict_unprivileged_userns=1`). The profile `ops/apparmor/bwrap` gives that permission to `/usr/bin/bwrap` only. The researcher installed it on 2026-10-08. The sysctl stays 1.
+2. With `allowWrite` set, the sandbox mounts the working directory read-only. bubblewrap then fails when it must create a protected placeholder, such as `.gitconfig` or `.vscode`. `harness tower start` creates these placeholders in the harness repository first. Git ignores them.
+3. `bin/harness` runs outside the sandbox (`excludedCommands`). The permission rules still apply to it.
+4. `strictAllowlist` refuses each network host that is not in `allowedDomains`. Only ET has a host: `github.com`.
 
 ### 11.4 ET waiting
 
@@ -435,11 +439,26 @@ After ET publishes a task, ET starts `harness wait <task>` as a background comma
 | Ledger for the end-to-end test | One sent and one received REPORT_READY with parsed headers |
 | `harness verify` after the end-to-end test | 0 problems |
 
-### 11.7 Known limits
+### 11.7 Sandbox result (2026-10-08)
 
-1. Without the sandbox, a script that ET or VT runs can write any path that the user can write.
+| Probe (script run with `python3 <file>` in a tower session) | Result |
+|---|---|
+| VT script writes the workspace | Refused: read-only file system |
+| VT or ET script writes the harness repository | Refused: read-only file system |
+| ET script writes `state/PROJECT_STATE.md` | Refused: read-only file system |
+| VT script writes its own draft directory | Allowed |
+| VT script opens `https://example.com` | Refused by the network proxy (403) |
+| ET `git ls-remote` to `gitlab.com` | Refused by the network proxy (403) |
+| ET `git ls-remote` to `github.com`, ET `git commit` in the workspace | Allowed |
+| VT script lists `~/.ssh` | Not visible in the sandbox |
+| VT script listens on `0.0.0.0:18765` | The listen succeeds inside the sandbox network. The host never sees the port. |
+
+### 11.8 Known limits
+
+1. A sandbox covers Bash commands only. Read, Edit, Write, and WebFetch follow the permission rules.
 2. VT cannot read output files on a server. A result gives their size and SHA-256 only. A content check needs an `inspect` task or a later output-fetch feature.
 3. The researcher starts the executor daemon and the towers.
+4. `git push` to GitHub through the sandbox proxy was not tested. `git ls-remote` to GitHub works.
 
 ## 9. Open decisions
 

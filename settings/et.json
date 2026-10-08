@@ -29,7 +29,10 @@
       "Bash(mkdir *)",
       "Bash(bin/harness publish task * --actor ET)",
       "Bash(bin/harness publish report * --actor ET)",
-      "Bash(bin/harness wait *)"
+      "Bash(bin/harness wait *)",
+      "Bash(bin/harness status)",
+      "Bash(bin/harness status *)",
+      "Bash(bin/harness git *)"
     ],
     "deny": [
       "Edit(/{{HARNESS}}/**)",
@@ -43,7 +46,18 @@
       "Bash(git push * --force*)",
       "Bash(git push * -f*)",
       "Bash(git reset --hard*)",
-      "Bash(git clean *)"
+      "Bash(git clean *)",
+      "Bash(git * remote add *)",
+      "Bash(git * remote set-url *)",
+      "Bash(git * remote rename *)",
+      "Bash(git * config *)",
+      "Bash(git * push http*)",
+      "Bash(git * push git@*)",
+      "Bash(git * push ssh:*)",
+      "Bash(git * push file:*)",
+      "Bash(git * push /*)",
+      "Bash(git * push --repo*)",
+      "Bash(git * -c *)"
     ]
   },
   "sandbox": {

@@ -24,6 +24,10 @@ bin/harness publish handoff draft.md --actor DT  # validate and store a record. 
 bin/harness list [kind] [--experiment ID]
 bin/harness show <ID or reference>
 bin/harness verify                               # check hashes, journal, schemas, and references
+bin/harness status                               # experiments, tasks, results, and verdicts
+bin/harness handoff-draft <EXPERIMENT-ID> --out d.md   # next handoff revision
+bin/harness publish <kind> <draft> --dry-run --actor <A>  # check without storing
+bin/harness git <repo> push <branch>             # network Git for ET (origin only)
 bin/harness message --type STATUS --body-file b.md   # format a cross-session message
 bin/harness messages --last 20                   # print the message ledger
 bin/harness executor watch                       # run published tasks (one daemon for each data root)
@@ -35,4 +39,4 @@ python3 -m unittest discover -s tests -t .
 
 ## Status
 
-Phases 0, 1, and 2 are complete. See `docs/DESIGN.md` sections 8.1, 10.5, and 11.6.
+Phases 0, 1, 2, and 4 are complete. See `docs/DESIGN.md`. The researcher guide is `docs/OPERATIONS.md` (Korean).

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -26,8 +27,47 @@ def cmd_root(args) -> int:
 def cmd_publish(args) -> int:
     store = Store(find_data_root(args.data_root))
     text = Path(args.file).read_text(encoding="utf-8")
-    record = store.publish(args.kind, text, args.actor)
-    print(record.ref)
+    record = store.publish(args.kind, text, args.actor, dry_run=args.dry_run)
+    print(f"VALID: would publish {record.record_id}" if args.dry_run else record.ref)
+    return 0
+
+
+def cmd_handoff_draft(args) -> int:
+    store = Store(find_data_root(args.data_root))
+    text = store.handoff_draft(args.experiment)
+    if args.out:
+        Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.out).write_text(text, encoding="utf-8")
+        print(args.out)
+    else:
+        sys.stdout.write(text)
+    return 0
+
+
+def cmd_status(args) -> int:
+    """A short overview for the researcher: each experiment, its latest handoff, tasks, and verdicts."""
+    store = Store(find_data_root(args.data_root))
+    experiments: dict[str, dict] = {}
+    for record in store.records("handoff"):
+        experiments.setdefault(record.fields["experiment_id"], {})["handoff"] = record
+    for record in store.records("task"):
+        experiments.setdefault(record.fields["experiment_id"], {}).setdefault("tasks", []).append(record)
+    verdicts = list(store.records("verdict"))
+    for experiment, items in sorted(experiments.items()):
+        if args.experiment and experiment != args.experiment:
+            continue
+        handoff = items.get("handoff")
+        head = (f"R{handoff.fields['revision']} {handoff.fields['status']} {handoff.fields['authorization']}"
+                if handoff else "no handoff")
+        print(f"{experiment}: {head}")
+        for task in items.get("tasks", []):
+            result_id = f"RESULT-{task.record_id}"
+            outcome = store.load(result_id).fields["outcome"] if store.path_of(result_id).exists() else "WAITING"
+            print(f"  {task.record_id} {task.fields['mode']} {task.fields['execution_class']} {outcome}")
+        refs = {r.ref for r in store.records("handoff") if r.fields["experiment_id"] == experiment}
+        for verdict in verdicts:
+            if verdict.fields["handoff"] in refs:
+                print(f"  {verdict.record_id} {verdict.fields['phase']} {verdict.fields['overall']}")
     return 0
 
 
@@ -111,6 +151,40 @@ def cmd_wait(args) -> int:
     return 0
 
 
+GIT_VERBS = ("push", "fetch", "pull", "ls-remote")
+GIT_FORBIDDEN = ("--force", "-f", "--force-with-lease", "--force-if-includes", "--mirror", "--delete", "-d",
+                 "--all", "--prune", "--repo", "--receive-pack", "--upload-pack", "--exec")
+
+
+def cmd_git(args) -> int:
+    """Network Git for a configured workspace, run outside the tower sandbox.
+    Only the 'origin' remote is used, and its URL must equal the configured remote."""
+    import subprocess
+    root = find_data_root(args.data_root)
+    repo = Path(args.repo).resolve()
+    workspaces = (Store(root).config().get("workspaces") or {})
+    match = [w for w in workspaces.values() if (root / w["path"]).resolve() == repo]
+    if not match:
+        raise RecordError(f"{repo} is not a configured workspace in config.json")
+    url = subprocess.run(["git", "-C", str(repo), "remote", "get-url", "origin"], capture_output=True,
+                         text=True).stdout.strip()
+    if url != match[0].get("remote"):
+        raise RecordError(f"origin is {url!r}, but config.json gives {match[0].get('remote')!r}")
+    if args.verb not in GIT_VERBS:
+        raise RecordError(f"verb must be one of {', '.join(GIT_VERBS)}")
+    rest = list(args.rest)
+    for word in rest:
+        if word in GIT_FORBIDDEN or word.startswith(("--force", "--mirror", "--delete", "--receive-pack",
+                                                     "--upload-pack", "--exec", "--repo")) \
+                or (args.verb == "push" and (word.startswith("+") or word.startswith(":"))):
+            raise RecordError(f"argument {word!r} is not allowed")
+    command = ["git", "-C", str(repo), args.verb]
+    if args.verb == "pull":
+        command.append("--ff-only")
+    command += ["origin", *rest]
+    return subprocess.run(command, env={**os.environ, "GIT_TERMINAL_PROMPT": "0"}).returncode
+
+
 def cmd_tower(args) -> int:
     if args.action == "start":
         session = tower.start(args.name, find_data_root(args.data_root), args.model, args.prompt)
@@ -141,7 +215,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("kind", choices=KINDS)
     p.add_argument("file")
     p.add_argument("--actor", required=True, choices=ACTORS)
+    p.add_argument("--dry-run", action="store_true", help="validate only. Do not store the record")
     p.set_defaults(func=cmd_publish)
+
+    p = sub.add_parser("handoff-draft", help="write a draft of the next handoff revision")
+    p.add_argument("experiment")
+    p.add_argument("--out", help="draft file path (default: print)")
+    p.set_defaults(func=cmd_handoff_draft)
+
+    p = sub.add_parser("status", help="overview of experiments, tasks, results, and verdicts")
+    p.add_argument("--experiment")
+    p.set_defaults(func=cmd_status)
 
     p = sub.add_parser("show", help="print a record by ID or reference")
     p.add_argument("record")
@@ -177,6 +261,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--timeout-minutes", type=float, default=60)
     p.add_argument("--poll-seconds", type=float, default=5)
     p.set_defaults(func=cmd_wait)
+
+    p = sub.add_parser("git", help="push, fetch, pull, or ls-remote the origin of a workspace (ET)")
+    p.add_argument("repo", help="workspace repository path")
+    p.add_argument("verb", choices=GIT_VERBS)
+    p.add_argument("rest", nargs=argparse.REMAINDER, help="arguments after 'origin', such as a branch")
+    p.set_defaults(func=cmd_git)
 
     p = sub.add_parser("tower", help="start or list tower sessions")
     p.add_argument("action", choices=("start", "status", "command"))

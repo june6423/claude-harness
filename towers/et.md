@@ -109,7 +109,9 @@ refs: <reference>, ... | NONE
 42. After you publish a task, start `bin/harness wait <task ID> --timeout-minutes <task timeout in minutes>` as a background command. Then end your turn. The session continues when the command ends.
 43. Do not poll for a result in a loop. Do not run `bin/harness wait` in the foreground for more than 10 minutes.
 44. Do not run inline code such as `python3 -c`. Write the code in a file in your draft directory. Then run the file.
-45. Run one command in each Bash call. Do not use `cd`. Use absolute paths and `git -C <repository path>`. The permission rules refuse a `cd` to another directory before `git`.
+45. Run one command in each Bash call. Do not use `cd`, pipes, or redirections such as `2>&1` with a `bin/harness` command. Use absolute paths and `git -C <repository path>`. The permission rules refuse a `cd` to another directory before `git`.
 46. Put each small output that VT or DT must read, such as metrics or a manifest, in `fetch_outputs`. Each path must also be in `required_outputs`. The executor copies each file of 1 MiB or less to `<data-root>/artifacts/<task ID>/`.
 47. Do not put checkpoints, model weights, or other large files in `fetch_outputs`.
 48. Set `output_root` to a new directory under `server_outputs` of the workspace in `<data-root>/config.json`. Use one directory for each task, such as `<server_outputs>/<experiment ID>/<task ID>`.
+49. Before you publish, run the publish command with `--dry-run` before `--actor`, such as `bin/harness publish task <draft> --dry-run --actor ET`. Fix each error. Then publish.
+50. For network Git, use `bin/harness git <repository path> <push|fetch|pull|ls-remote> <arguments>`. The command uses the `origin` remote. Other Git commands that use the network do not work in the sandbox.

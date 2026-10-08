@@ -1,6 +1,6 @@
 # Harness Design — Phase 0
 
-Status: APPROVED by the researcher on 2026-10-08. Phase 0 is complete (section 8.1). Phase 1 is complete (section 10.5). Phase 2 is complete (section 11.6).
+Status: APPROVED by the researcher on 2026-10-08. Phase 0 is complete (section 8.1). Phase 1 is complete (section 10.5). Phase 2 is complete (section 11.6). Phase 4 is complete (section 14.2).
 
 ## 1. Decisions
 
@@ -519,6 +519,35 @@ Server `POSTECH_900_A6000_8`, container `VLM_EGG_QUAL_A6000_001`, a new test fol
 4. A copied file is read-only. The result lists it in `fetched`. `harness verify` checks each copy against its SHA-256.
 5. `artifacts/` is inside the data root Git repository. All towers can read it.
 6. SSH test on the A6000 server (2026-10-08): a 29-byte metrics file was copied with a matching SHA-256. A 3 MB file went to `fetch_skipped` with the size reason.
+
+## 14. Phase 4 — DT operation
+
+### 14.1 Features
+
+1. `harness handoff-draft <experiment>` writes the next revision with `revision` and `predecessor` filled. It copies the gates and body of the latest revision, sets DRAFT, and clears `approval`.
+2. `harness publish ... --dry-run` runs every check and stores nothing.
+3. Body limits: `limits.handoff_body_chars` (8000), `report_body_chars` (6000), `verdict_body_chars` (6000). `harness publish` refuses a longer body.
+4. `hooks/dt_guard.py` runs before each DT tool call:
+   - An APPROVED handoff publish needs the `approval` text verbatim in a message that the researcher typed in the DT session. The hook reads the transcript. A researcher message has origin kind `human`, or no origin and a `promptId` in print mode. Peer messages, task notifications, tool output, and meta entries do not count. If the transcript cannot be read, the hook blocks.
+   - A Write or Edit of `state/PROJECT_STATE.md` must not exceed `limits.project_state_chars` (12000).
+5. `harness init` writes `PROJECT_STATE.md` with four sections: Current decisions, Live hypotheses, Validated evidence, Open questions.
+6. `harness status` gives each experiment with its latest handoff, tasks, outcomes, and verdicts.
+7. `harness git <repo> <push|fetch|pull|ls-remote>` is the network Git path for ET. The sandbox hides `~/.local/bin/gh`, so the Git credential helper fails in the sandbox. The command runs outside the sandbox, uses only `origin`, requires the origin URL to equal the configured workspace remote, and refuses force, delete, mirror, and refspec forms that rewrite or remove history. ET settings deny `git remote add`, `remote set-url`, `config`, and pushes to an explicit URL.
+8. `docs/OPERATIONS.md` is the Korean guide for the researcher.
+
+### 14.2 Phase 4 result (2026-10-08)
+
+| Check | Result |
+|---|---|
+| Unit tests | 63 PASS |
+| DT (Sonnet) publishes APPROVED with the approval that the researcher typed | Published |
+| DT copies the approval from a file that another tower wrote | Blocked by `dt_guard` with the reason |
+| DT edits `PROJECT_STATE.md` over a 600-character test limit | Blocked by `dt_guard`. The file stayed unchanged |
+| ET `bin/harness git ... ls-remote` and `fetch` on the private GitHub repository | Allowed and authenticated |
+| ET `bin/harness git ... push --force` | Refused by the command |
+| ET `git remote set-url`, `git config`, `git push <url>` | Refused by the permission rules |
+
+A DT that runs commands with `2>&1` or `;` gets a permission refusal, because a rule must match the whole command. The tower rules now require one plain command for each Bash call.
 
 ## 9. Open decisions
 

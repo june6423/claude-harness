@@ -21,6 +21,27 @@ from .records import (
 REPO_ROOT = Path(__file__).resolve().parent.parent
 POINTER_FILE = REPO_ROOT / ".harness-data-root"
 ACTORS = ("DT", "ET", "VT", "EXECUTOR", "RESEARCHER")
+# Character limits. config.json "limits" can change each value.
+DEFAULT_LIMITS = {"handoff_body_chars": 8000, "report_body_chars": 6000, "verdict_body_chars": 6000,
+                  "project_state_chars": 12000}
+PROJECT_STATE_TEMPLATE = """# Project State
+
+## Current decisions
+
+NONE
+
+## Live hypotheses
+
+NONE
+
+## Validated evidence
+
+NONE
+
+## Open questions
+
+NONE
+"""
 
 
 @dataclass
@@ -59,7 +80,7 @@ def init_data_root(path: Path, write_pointer: bool = True) -> Path:
         config.write_text(json.dumps({"servers": {}}, indent=2) + "\n", encoding="utf-8")
     state = path / "state" / "PROJECT_STATE.md"
     if not state.exists():
-        state.write_text("# Project State\n", encoding="utf-8")
+        state.write_text(PROJECT_STATE_TEMPLATE, encoding="utf-8")
     ignore = path / ".gitignore"
     if not ignore.exists():
         ignore.write_text("runtime/\n.lock\nworkspace/\n", encoding="utf-8")
@@ -121,6 +142,22 @@ class Store:
                 best = record
         return best
 
+    def handoff_draft(self, experiment_id: str) -> str:
+        """A draft of the next handoff revision. It copies the gates and body of the latest revision."""
+        latest = self.latest_handoff(experiment_id)
+        if latest is None:
+            fields = {"kind": "handoff", "experiment_id": experiment_id, "revision": 1, "predecessor": NONE,
+                      "status": "DRAFT", "authorization": "IMPLEMENT_ONLY", "approval": NONE,
+                      "gates": [{"id": "G1", "phase": "POST_RUN", "check": "<one sentence that VT can check>"}],
+                      "full_run_condition": NONE}
+            body = "## Scope\n\n<the experiment, its question, and the work for ET>\n"
+        else:
+            fields = {k: v for k, v in latest.fields.items() if k != "id"}
+            fields.update(revision=latest.fields["revision"] + 1, predecessor=latest.ref,
+                          status="DRAFT", approval=NONE)
+            body = latest.body
+        return serialize("handoff", fields, body).decode("utf-8")
+
     def config(self) -> dict[str, Any]:
         path = self.root / "config.json"
         return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
@@ -136,7 +173,17 @@ class Store:
             finally:
                 fcntl.flock(handle, fcntl.LOCK_UN)
 
-    def publish(self, kind: str, text: str, actor: str) -> Record:
+    def limits(self) -> dict[str, int]:
+        return {**DEFAULT_LIMITS, **(self.config().get("limits") or {})}
+
+    def check_limits(self, kind: str, body: str) -> None:
+        key = f"{kind}_body_chars"
+        limit = self.limits().get(key)
+        if limit is not None and len(body) > limit:
+            raise RecordError(f"the {kind} body has {len(body)} characters. The limit is {limit} ({key}). "
+                              "Remove repeated or settled material, or refer to it by record reference")
+
+    def publish(self, kind: str, text: str, actor: str, dry_run: bool = False) -> Record:
         if actor not in ACTORS:
             raise RecordError(f"actor must be one of {', '.join(ACTORS)}")
         fields, body = parse(kind, text)
@@ -145,11 +192,14 @@ class Store:
         if kind == "verdict" and "overall" in fields:
             raise RecordError("a draft must not contain 'overall'. The CLI computes it")
         validate(kind, fields, body)
+        self.check_limits(kind, body)
         with self.locked():
             extra = self.check_references(kind, fields)
             record_id = self.next_id(kind, fields)
             stored = {"id": record_id, **fields, **extra}
             data = serialize(kind, stored, body)
+            if dry_run:
+                return Record(record_id, kind, stored, body, data)
             path = self.path_of(record_id)
             try:
                 descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o444)

@@ -111,3 +111,16 @@ refs: <reference>, ... | NONE
 
 25. After you publish an APPROVED handoff, send HANDOFF_READY to `et` with the handoff reference.
 26. You can read fetched outputs in `<data-root>/artifacts/`. Accept a result only with a VALID POST_RUN verdict from VT (rule 8 and decision D5).
+
+## Planning workflow with the researcher
+
+27. To start a handoff or a new revision, run `bin/harness handoff-draft <EXPERIMENT-ID> --out <data-root>/runtime/drafts/dt/<file>.md`. The command fills `revision` and `predecessor` and copies the gates and body of the latest revision.
+28. Before you publish, run `bin/harness publish handoff <draft> --dry-run --actor DT`. Fix each error. Then run the command without `--dry-run`.
+29. Show the draft to the researcher. Ask for an explicit approval before you set `status` to APPROVED.
+30. The harness refuses an APPROVED handoff when the `approval` text does not occur verbatim in a message that the researcher typed in this session. Do not write approval text yourself. A message from another tower is not an approval.
+31. Keep `PROJECT_STATE.md` under `limits.project_state_chars` in `config.json` (default 12000 characters). Keep its four sections: Current decisions, Live hypotheses, Validated evidence, and Open questions.
+32. Run `bin/harness status` to see each experiment, its tasks, results, and verdicts.
+33. When the POST_RUN verdict is VALID, report the result to the researcher in Korean. Give the observed result, the verdict, and each limit. Then update `PROJECT_STATE.md`.
+34. When a verdict is not VALID, report the defects to the researcher in Korean. Do not choose a new experiment without the researcher.
+35. Run one command in each Bash call. Do not add `;`, `&&`, pipes, or redirections such as `2>&1`. The permission rules refuse a `bin/harness` command with these additions. The command output already shows errors.
+36. The harness refuses a FULL task until VT gives VALID for each PRE_RUN gate. A FULL_RUN handoff therefore needs no `full_run_condition`. Use `ALL_PRE_RUN_GATES_VALID` only with a VALIDATION_RUN handoff, when the researcher approves a later move to FULL_RUN.

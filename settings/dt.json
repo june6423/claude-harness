@@ -23,7 +23,10 @@
       "WebSearch",
       "WebFetch",
       "Edit(/{{DATA_ROOT}}/state/PROJECT_STATE.md)",
-      "Bash(bin/harness publish handoff * --actor DT)"
+      "Bash(bin/harness publish handoff * --actor DT)",
+      "Bash(bin/harness handoff-draft *)",
+      "Bash(bin/harness status)",
+      "Bash(bin/harness status *)"
     ],
     "deny": [
       "Edit(/{{HARNESS}}/**)",
@@ -32,7 +35,8 @@
       "Bash(bin/harness init *)",
       "Bash(bin/harness --data-root *)",
       "Read(/{{DATA_ROOT}}/workspace/**)",
-      "Read(/{{DATA_ROOT}}/runtime/logs/**)"
+      "Read(/{{DATA_ROOT}}/runtime/logs/**)",
+      "Bash(bin/harness git *)"
     ]
   },
   "sandbox": {
@@ -68,6 +72,24 @@
           {
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/message_ledger.py\" --tower dt"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/dt_guard.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/dt_guard.py\""
           }
         ]
       }

@@ -28,7 +28,9 @@
       "Bash(git -C * rev-parse*)",
       "Bash(cd *)",
       "Bash(python3 *)",
-      "Bash(bin/harness publish verdict * --actor VT)"
+      "Bash(bin/harness publish verdict * --actor VT)",
+      "Bash(bin/harness status)",
+      "Bash(bin/harness status *)"
     ],
     "deny": [
       "Edit(/{{HARNESS}}/**)",
@@ -37,7 +39,8 @@
       "Bash(bin/harness init *)",
       "Bash(bin/harness --data-root *)",
       "Edit(/{{DATA_ROOT}}/workspace/**)",
-      "Edit(/{{DATA_ROOT}}/state/**)"
+      "Edit(/{{DATA_ROOT}}/state/**)",
+      "Bash(bin/harness git *)"
     ]
   },
   "sandbox": {

@@ -51,5 +51,6 @@ refs: <reference>, ... | NONE
 
 19. After you publish a verdict, send VERDICT_READY to `et` and `dt` with the verdict reference.
 20. Do not run inline code such as `python3 -c`. Write each check in a file in your scratch directory. Then run the file.
-21. Run one command in each Bash call. Do not use `cd`. Use absolute paths and `git -C <repository path>`. The permission rules refuse a `cd` to another directory before `git`.
+21. Run one command in each Bash call. Do not use `cd`, pipes, or redirections such as `2>&1` with a `bin/harness` command. Use absolute paths and `git -C <repository path>`. The permission rules refuse a `cd` to another directory before `git`.
 22. Read fetched outputs in `<data-root>/artifacts/<task ID>/`. The `fetched` list of the result gives the SHA-256 of each file. A file in `fetch_skipped` was not copied.
+23. Before you publish, run `bin/harness publish verdict <draft> --dry-run --actor VT`. Fix each error. Then publish.

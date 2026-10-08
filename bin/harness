@@ -1,0 +1,4 @@
+#!/bin/sh
+# Run the harness CLI from any directory.
+HERE=$(dirname "$(readlink -f "$0")")
+PYTHONPATH="$HERE/..${PYTHONPATH:+:$PYTHONPATH}" exec python3 -m harness "$@"

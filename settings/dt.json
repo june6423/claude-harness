@@ -1,0 +1,11 @@
+{
+  "crossSessionInbound": "accept",
+  "hooks": {
+    "PreToolUse": [
+      {"matcher": "SendMessage", "hooks": [{"type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/message_ledger.py\" --tower dt"}]}
+    ],
+    "UserPromptSubmit": [
+      {"hooks": [{"type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/message_ledger.py\" --tower dt"}]}
+    ]
+  }
+}

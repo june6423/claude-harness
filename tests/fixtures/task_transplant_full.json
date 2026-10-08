@@ -1,0 +1,46 @@
+{
+  "kind": "task",
+  "experiment_id": "VLM-OPSD-TRANSPLANT-001",
+  "handoff": "{{HANDOFF_REF}}",
+  "source": "USER",
+  "user_request": "handoff를 수정했어. base 4B를 full run으로 실행하자. A6000 GPU 6,7번 2장을 사용해줘",
+  "mode": "run",
+  "execution_class": "FULL",
+  "server": "a6000",
+  "repo": "faculty_opsd_transplant",
+  "branch": "exp/VLM-OPSD-TRANSPLANT-001",
+  "commit": "ff25847a583f3117ed2ee8e658a97b266e54f5a4",
+  "runtime": {
+    "container": "VLM_TRANSPLANT_A6000_001"
+  },
+  "entrypoint": [
+    "bash",
+    "scripts/run_native_base_main.sh"
+  ],
+  "instructions": "NONE",
+  "env": {
+    "CUDA_VISIBLE_DEVICES": "0,1"
+  },
+  "output_root": "/workspace/faculty-opsd-transplant/outputs/VLM-OPSD-TRANSPLANT-001/TRANSPLANT-2026-10-07-01/native-base-001",
+  "required_outputs": [
+    "run/candidates.jsonl",
+    "run/scores.jsonl",
+    "run/metrics.json"
+  ],
+  "gpu": {
+    "count": 2,
+    "policy": "FIXED",
+    "devices": [
+      6,
+      7
+    ],
+    "constraints": "A6000 physical GPUs 6 and 7 only."
+  },
+  "timeout_seconds": 172800,
+  "pre_run_verdict": "{{VERDICT_REF}}",
+  "lineage": {
+    "parent": "NONE",
+    "recovery_of": "NONE",
+    "attempt": 0
+  }
+}

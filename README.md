@@ -16,6 +16,20 @@ Each tower runs as an independent Claude Code session. The towers communicate th
 
 The `harness-writing` skill sets the language and the ASD-STE100 mode for each output channel. Machine-read documents and cross-session messages use English STE Strict. Replies to the researcher use Korean.
 
+## Usage
+
+```bash
+bin/harness init ~/harness-data/<project>        # create a data root and point this repository to it
+bin/harness publish handoff draft.md --actor DT  # validate and store a record. Prints ID@sha256:<hex>
+bin/harness list [kind] [--experiment ID]
+bin/harness show <ID or reference>
+bin/harness verify                               # check hashes, journal, schemas, and references
+bin/harness message --type STATUS --body-file b.md   # format a cross-session message
+bin/harness messages --last 20                   # print the message ledger
+bin/harness tower start et                       # start a tower session in the background
+python3 -m unittest discover -s tests -t .
+```
+
 ## Status
 
-Phase 0. The repository contains the tower instructions and the writing skills only.
+Phase 0 is complete. See `docs/DESIGN.md` section 8.1. The executor is Phase 1.

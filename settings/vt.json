@@ -57,7 +57,8 @@
       "denyRead": []
     },
     "network": {
-      "allowedDomains": []
+      "allowedDomains": [],
+      "strictAllowlist": true
     }
   },
   "hooks": {

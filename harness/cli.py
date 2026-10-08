@@ -18,6 +18,11 @@ def cmd_init(args) -> int:
     return 0
 
 
+def cmd_root(args) -> int:
+    print(find_data_root(args.data_root))
+    return 0
+
+
 def cmd_publish(args) -> int:
     store = Store(find_data_root(args.data_root))
     text = Path(args.file).read_text(encoding="utf-8")
@@ -93,6 +98,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("path")
     p.add_argument("--no-pointer", action="store_true", help="do not write .harness-data-root")
     p.set_defaults(func=cmd_init)
+
+    p = sub.add_parser("root", help="print the data root path")
+    p.set_defaults(func=cmd_root)
 
     p = sub.add_parser("publish", help="validate a draft and store it as an immutable record")
     p.add_argument("kind", choices=KINDS)

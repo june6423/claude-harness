@@ -11,13 +11,14 @@ Status: APPROVED by the researcher on 2026-10-08. Phase 0 is complete (section 8
 | D3 | A tower starts with `claude --bg --agent <name> --name <name>`. | 2026-10-08 |
 | D4 | A remote `run` executes a declared entrypoint without an agent. A remote agent does only `inspect` and environment diagnosis. | 2026-10-08 |
 | D5 | A FULL run needs a VALID pre-run verdict from VT. DT accepts a result only with a VALID post-run verdict from VT. A VALIDATION run does not need VT. | 2026-10-08 |
-| D6 | Workspace repositories stay in `research_control/workspace/`. The harness refers to them by path. | 2026-10-08 |
+| D6 | Superseded by D13. | 2026-10-08 |
 | D7 | Machine-read documents and cross-session messages use English STE Strict. Replies to the researcher use Korean. | 2026-10-08 |
 | D8 | The harness does not enforce the writing rules with hooks. | 2026-10-08 |
 | D9 | The data root of a project is `~/harness-data/<project>/`. It has its own Git repository. `runtime/` stays out of Git. | 2026-10-08 |
 | D10 | A tower writes records only through `harness publish`. A tower writes a draft in its scratch directory first. | 2026-10-08 |
 | D11 | Each `run` and `allocate-run` task declares a non-empty `required_outputs` list. | 2026-10-08 |
 | D12 | The front matter of a Markdown record is one JSON object. The harness uses the Python standard library only. | 2026-10-08 |
+| D13 | Each workspace repository is a clone in `<data-root>/workspace/`. The data root Git repository ignores `workspace/`. The copies in `research_control/workspace/` stay unchanged. | 2026-10-08 |
 
 ## 2. Principles
 
@@ -86,7 +87,7 @@ One data root holds the records of one research project. The harness repository 
 
 ```text
 <data-root>/
-├── config.json                      # servers, repositories, runtimes
+├── config.json                      # workspaces, servers, repositories, runtimes
 ├── records/
 │   ├── handoff/HANDOFF-<exp>-<rev>.md
 │   ├── report/REPORT-<exp>-<n>.md
@@ -94,6 +95,7 @@ One data root holds the records of one research project. The harness repository 
 │   ├── task/TASK-<exp>-<n>.json
 │   └── result/RESULT-<task-id>.json
 ├── state/PROJECT_STATE.md           # DT keeps this file current
+├── workspace/<repo>/                # workspace clones (D13), not in the data root Git
 ├── journal.jsonl
 ├── messages.jsonl                   # message ledger
 └── runtime/                         # executor queue, live receipts, logs

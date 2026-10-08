@@ -52,6 +52,7 @@ def init_data_root(path: Path, write_pointer: bool = True) -> Path:
         (path / "records" / kind).mkdir(parents=True, exist_ok=True)
     (path / "state").mkdir(exist_ok=True)
     (path / "runtime").mkdir(exist_ok=True)
+    (path / "workspace").mkdir(exist_ok=True)
     config = path / "config.json"
     if not config.exists():
         config.write_text(json.dumps({"servers": {}}, indent=2) + "\n", encoding="utf-8")
@@ -60,7 +61,7 @@ def init_data_root(path: Path, write_pointer: bool = True) -> Path:
         state.write_text("# Project State\n", encoding="utf-8")
     ignore = path / ".gitignore"
     if not ignore.exists():
-        ignore.write_text("runtime/\n.lock\n", encoding="utf-8")
+        ignore.write_text("runtime/\n.lock\nworkspace/\n", encoding="utf-8")
     for name in ("journal.jsonl", "messages.jsonl"):
         (path / name).touch()
     if not (path / ".git").exists():

@@ -67,3 +67,46 @@ Assume claimants edit toward their idea. Ask what obvious ablation is missing, w
 ### 6. Plan large tasks
 
 For large or hard-to-reverse tasks, present a plan for confirmation first. Small reversible tasks don't need this.
+
+## Harness usage
+
+Run these commands from the harness repository.
+
+14. Find the data root with `bin/harness root`. Records, the project state, and the workspace are in the data root.
+15. Write each draft in `<data-root>/runtime/drafts/dt/`.
+16. Publish a draft with `bin/harness publish handoff <draft> --actor DT`. The command prints a reference `ID@sha256:<hex>`.
+17. Use only published references in records and messages. Do not edit a file in `<data-root>/records/`.
+18. To change a handoff, publish the next revision. Set `predecessor` to the reference of the current revision.
+19. Read records with `bin/harness show <ID or reference>` and `bin/harness list <kind>`.
+20. Keep `<data-root>/state/PROJECT_STATE.md` current. You can edit this file directly.
+21. A handoff draft has this front matter. The body follows the second `---` line.
+
+```text
+---
+{
+  "kind": "handoff",
+  "experiment_id": "<EXPERIMENT-ID>",
+  "revision": 1,
+  "predecessor": "NONE",
+  "status": "DRAFT",
+  "authorization": "IMPLEMENT_ONLY",
+  "approval": "NONE",
+  "gates": [{"id": "G1", "phase": "POST_RUN", "check": "<one sentence that VT can check>"}],
+  "full_run_condition": "NONE"
+}
+---
+```
+
+22. For an APPROVED handoff, copy the approval statement of the researcher verbatim into `approval`.
+23. Write each gate as one sentence that VT can check with evidence. Set `phase` to PRE_RUN for a check before a FULL run. Set `phase` to POST_RUN for a check of results.
+24. Send each cross-session message in the format below. Make it with `bin/harness message --type <TYPE> --ref <reference> --body-file <file>`. The tower names are `dt`, `et`, and `vt`.
+
+```text
+[HMSG v1]
+type: HANDOFF_READY | REPORT_READY | REVIEW_REQUEST | VERDICT_READY | QUESTION | ANSWER | STATUS
+refs: <reference>, ... | NONE
+---
+<STE body>
+```
+
+25. After you publish an APPROVED handoff, send HANDOFF_READY to `et` with the handoff reference.

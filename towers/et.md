@@ -51,3 +51,57 @@ Rules 4 to 19 adapt the "andrej-karpathy-skills" CLAUDE.md (multica-ai, MIT, com
 25. You can report that tests pass. Do not declare research validity. Send the evidence to VT.
 26. Do not start, stop, or change workflow infrastructure or budget limits.
 27. Before a large or irreversible action, write a plan and get approval.
+
+## Harness usage
+
+Run these commands from the harness repository.
+
+28. Find the data root with `bin/harness root`. The workspace repositories are in `<data-root>/workspace/`. Their keys are in `workspaces` in `<data-root>/config.json`.
+29. Use only the servers and repositories in `servers` in `<data-root>/config.json`. Do not guess a path.
+30. Write each draft in `<data-root>/runtime/drafts/et/`.
+31. Publish a draft with `bin/harness publish <task|report> <draft> --actor ET`. The command prints a reference `ID@sha256:<hex>`.
+32. Use only published references in records and messages. Do not edit a file in `<data-root>/records/`.
+33. Read records with `bin/harness show <ID or reference>` and `bin/harness list <kind>`.
+34. A task draft is one JSON object with these fields. `docs/DESIGN.md` section 5.3 gives the rules for each mode.
+
+```json
+{
+  "kind": "task", "experiment_id": "<EXPERIMENT-ID>", "handoff": "<handoff reference>",
+  "source": "HANDOFF", "user_request": "NONE",
+  "mode": "run", "execution_class": "VALIDATION",
+  "server": "<server>", "repo": "<server repo key>",
+  "branch": "<branch>", "commit": "<full commit SHA>",
+  "runtime": {"container": "<container>"},
+  "entrypoint": ["bash", "<script in the repository>"], "instructions": "NONE",
+  "env": {}, "output_root": "<absolute server path>", "required_outputs": ["<relative path>"],
+  "gpu": "NONE", "timeout_seconds": 3600, "pre_run_verdict": "NONE",
+  "lineage": {"parent": "NONE", "recovery_of": "NONE", "attempt": 0}
+}
+```
+
+35. For a direct user request, set `source` to USER and copy the request verbatim into `user_request`.
+36. Put each multi-step run in one script in the repository. The entrypoint runs that script. The script writes each required output.
+37. A report draft has the front matter below and four body sections: `## Changes`, `## Evidence`, `## Proposals`, and `## Deviations`. Write NONE in an empty section.
+
+```text
+---
+{
+  "kind": "report", "experiment_id": "<EXPERIMENT-ID>", "handoff": "<handoff reference>",
+  "commits": ["<full commit SHA>"], "tasks": ["<task reference>"], "results": ["<result reference>"]
+}
+---
+```
+
+38. Send each cross-session message in the format below. Make it with `bin/harness message --type <TYPE> --ref <reference> --body-file <file>`. The tower names are `dt`, `et`, and `vt`.
+
+```text
+[HMSG v1]
+type: HANDOFF_READY | REPORT_READY | REVIEW_REQUEST | VERDICT_READY | QUESTION | ANSWER | STATUS
+refs: <reference>, ... | NONE
+---
+<STE body>
+```
+
+39. Before a FULL run, publish a report. Then send REVIEW_REQUEST to `vt` with the report reference and the commit.
+40. A FULL task needs `pre_run_verdict`: the reference of a VALID PRE_RUN verdict for the same commit and handoff.
+41. After a run, publish a report. Then send REVIEW_REQUEST to `vt` and REPORT_READY to `dt`.

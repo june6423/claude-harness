@@ -98,15 +98,40 @@ class LedgerHookTest(unittest.TestCase):
 
 
 class TowerCommandTest(unittest.TestCase):
-    def test_start_command(self):
+    def test_start_command_and_rendered_settings(self):
+        from harness.store import REPO_ROOT
         from harness.tower import start_command
-        command = start_command("vt")
-        self.assertEqual(command[:7], ["claude", "--bg", "--agent", "vt", "--name", "vt",
-                                       "--append-system-prompt-file"])
-        self.assertTrue(command[7].endswith("towers/vt.md"))
-        self.assertTrue(command[-1].endswith("settings/vt.json"))
-        with self.assertRaises(RecordError):
-            start_command("xt")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            command = start_command("vt", root, model="sonnet")
+            self.assertEqual(command[:7], ["claude", "--bg", "--agent", "vt", "--name", "vt",
+                                           "--append-system-prompt-file"])
+            self.assertEqual(command[-2:], ["--model", "sonnet"])
+            settings_path = Path(command[command.index("--settings") + 1])
+            self.assertEqual(settings_path, root / "runtime" / "settings" / "vt.json")
+            text = settings_path.read_text()
+            self.assertNotIn("{{", text)
+            settings = json.loads(text)
+            self.assertEqual(settings["permissions"]["defaultMode"], "dontAsk")
+            self.assertIn(f"Edit(/{root}/runtime/drafts/vt/**)", settings["permissions"]["allow"])
+            self.assertIn(f"Edit(/{REPO_ROOT}/**)", settings["permissions"]["deny"])
+            self.assertTrue((root / "runtime" / "drafts" / "vt").is_dir())
+            with self.assertRaises(RecordError):
+                start_command("xt", root)
+
+    def test_every_tower_template_renders(self):
+        from harness.tower import TOWERS, render_settings
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for name in TOWERS:
+                settings = json.loads(render_settings(name, root).read_text())
+                self.assertNotIn("sandbox", settings)  # off unless config.json enables it
+                self.assertIn(f"--tower {name}", json.dumps(settings["hooks"]))
+            (root / "config.json").write_text(json.dumps({"towers": {"sandbox": True}}))
+            for name in TOWERS:
+                settings = json.loads(render_settings(name, root).read_text())
+                self.assertTrue(settings["sandbox"]["enabled"])
+                self.assertTrue(settings["sandbox"]["failIfUnavailable"])
 
 
 if __name__ == "__main__":

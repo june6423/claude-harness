@@ -1,11 +1,86 @@
 {
   "crossSessionInbound": "accept",
+  "permissions": {
+    "defaultMode": "dontAsk",
+    "additionalDirectories": [
+      "{{DATA_ROOT}}"
+    ],
+    "blockReadsOutsideWorkingDirectories": true,
+    "allow": [
+      "SendMessage",
+      "ListAgents",
+      "Skill",
+      "ToolSearch",
+      "Bash(bin/harness root)",
+      "Bash(bin/harness show *)",
+      "Bash(bin/harness list)",
+      "Bash(bin/harness list *)",
+      "Bash(bin/harness message *)",
+      "Bash(bin/harness messages)",
+      "Bash(bin/harness messages *)",
+      "Bash(bin/harness verify)",
+      "Edit(/{{DATA_ROOT}}/runtime/drafts/vt/**)",
+      "Bash(git -C * log*)",
+      "Bash(git -C * show*)",
+      "Bash(git -C * diff*)",
+      "Bash(git -C * status*)",
+      "Bash(git -C * ls-tree*)",
+      "Bash(git -C * rev-parse*)",
+      "Bash(cd *)",
+      "Bash(python3 *)",
+      "Bash(bin/harness publish verdict * --actor VT)"
+    ],
+    "deny": [
+      "Edit(/{{HARNESS}}/**)",
+      "Bash(bin/harness executor *)",
+      "Bash(bin/harness tower *)",
+      "Bash(bin/harness init *)",
+      "Bash(bin/harness --data-root *)",
+      "Edit(/{{DATA_ROOT}}/workspace/**)",
+      "Edit(/{{DATA_ROOT}}/state/**)"
+    ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "allowUnsandboxedCommands": false,
+    "excludedCommands": [
+      "bin/harness *"
+    ],
+    "filesystem": {
+      "allowWrite": [
+        "{{DATA_ROOT}}/runtime/drafts/vt"
+      ],
+      "denyWrite": [
+        "{{HARNESS}}"
+      ],
+      "denyRead": []
+    },
+    "network": {
+      "allowedDomains": []
+    }
+  },
   "hooks": {
     "PreToolUse": [
-      {"matcher": "SendMessage", "hooks": [{"type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/message_ledger.py\" --tower vt"}]}
+      {
+        "matcher": "SendMessage",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/message_ledger.py\" --tower vt"
+          }
+        ]
+      }
     ],
     "UserPromptSubmit": [
-      {"hooks": [{"type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/message_ledger.py\" --tower vt"}]}
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/message_ledger.py\" --tower vt"
+          }
+        ]
+      }
     ]
   }
 }

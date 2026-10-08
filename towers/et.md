@@ -105,3 +105,7 @@ refs: <reference>, ... | NONE
 39. Before a FULL run, publish a report. Then send REVIEW_REQUEST to `vt` with the report reference and the commit.
 40. A FULL task needs `pre_run_verdict`: the reference of a VALID PRE_RUN verdict for the same commit and handoff.
 41. After a run, publish a report. Then send REVIEW_REQUEST to `vt` and REPORT_READY to `dt`.
+42. After you publish a task, start `bin/harness wait <task ID> --timeout-minutes <task timeout in minutes>` as a background command. Then end your turn. The session continues when the command ends.
+43. Do not poll for a result in a loop. Do not run `bin/harness wait` in the foreground for more than 10 minutes.
+44. Do not run inline code such as `python3 -c`. Write the code in a file in your draft directory. Then run the file.
+45. Run one command in each Bash call. Do not use `cd`. Use absolute paths and `git -C <repository path>`. The permission rules refuse a `cd` to another directory before `git`.

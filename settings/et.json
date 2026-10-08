@@ -1,11 +1,95 @@
 {
   "crossSessionInbound": "accept",
+  "permissions": {
+    "defaultMode": "dontAsk",
+    "additionalDirectories": [
+      "{{DATA_ROOT}}"
+    ],
+    "blockReadsOutsideWorkingDirectories": true,
+    "allow": [
+      "SendMessage",
+      "ListAgents",
+      "Skill",
+      "ToolSearch",
+      "Bash(bin/harness root)",
+      "Bash(bin/harness show *)",
+      "Bash(bin/harness list)",
+      "Bash(bin/harness list *)",
+      "Bash(bin/harness message *)",
+      "Bash(bin/harness messages)",
+      "Bash(bin/harness messages *)",
+      "Bash(bin/harness verify)",
+      "Edit(/{{DATA_ROOT}}/runtime/drafts/et/**)",
+      "Edit(/{{DATA_ROOT}}/workspace/**)",
+      "Bash(git *)",
+      "Bash(cd *)",
+      "Bash(python3 *)",
+      "Bash(pytest *)",
+      "Bash(chmod *)",
+      "Bash(mkdir *)",
+      "Bash(bin/harness publish task * --actor ET)",
+      "Bash(bin/harness publish report * --actor ET)",
+      "Bash(bin/harness wait *)"
+    ],
+    "deny": [
+      "Edit(/{{HARNESS}}/**)",
+      "Bash(bin/harness executor *)",
+      "Bash(bin/harness tower *)",
+      "Bash(bin/harness init *)",
+      "Bash(bin/harness --data-root *)",
+      "Edit(/{{DATA_ROOT}}/state/**)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git push * --force*)",
+      "Bash(git push * -f*)",
+      "Bash(git reset --hard*)",
+      "Bash(git clean *)"
+    ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "allowUnsandboxedCommands": false,
+    "excludedCommands": [
+      "bin/harness *"
+    ],
+    "filesystem": {
+      "allowWrite": [
+        "{{DATA_ROOT}}/runtime/drafts/et",
+        "{{DATA_ROOT}}/workspace"
+      ],
+      "denyWrite": [
+        "{{HARNESS}}"
+      ],
+      "denyRead": []
+    },
+    "network": {
+      "allowedDomains": [
+        "github.com"
+      ]
+    }
+  },
   "hooks": {
     "PreToolUse": [
-      {"matcher": "SendMessage", "hooks": [{"type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/message_ledger.py\" --tower et"}]}
+      {
+        "matcher": "SendMessage",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/message_ledger.py\" --tower et"
+          }
+        ]
+      }
     ],
     "UserPromptSubmit": [
-      {"hooks": [{"type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/message_ledger.py\" --tower et"}]}
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/message_ledger.py\" --tower et"
+          }
+        ]
+      }
     ]
   }
 }

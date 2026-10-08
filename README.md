@@ -29,10 +29,10 @@ bin/harness messages --last 20                   # print the message ledger
 bin/harness executor watch                       # run published tasks (one daemon for each data root)
 bin/harness executor status
 bin/harness wait <task-id> --timeout-minutes 30    # wait for a result and print it
-bin/harness tower start et                       # start a tower session in the background
+bin/harness tower start et [--model sonnet] [--prompt TEXT]   # start a tower session in the background
 python3 -m unittest discover -s tests -t .
 ```
 
 ## Status
 
-Phase 0 and Phase 1 are complete. See `docs/DESIGN.md` sections 8.1 and 10.5.
+Phases 0, 1, and 2 are complete. See `docs/DESIGN.md` sections 8.1, 10.5, and 11.6.

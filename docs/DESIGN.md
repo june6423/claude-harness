@@ -1,6 +1,6 @@
 # Harness Design — Phase 0
 
-Status: APPROVED by the researcher on 2026-10-08. Phase 0 is complete (section 8.1). Phase 1 is complete (section 10.5).
+Status: APPROVED by the researcher on 2026-10-08. Phase 0 is complete (section 8.1). Phase 1 is complete (section 10.5). Phase 2 is complete (section 11.6).
 
 ## 1. Decisions
 
@@ -380,6 +380,66 @@ The `local` transport runs commands on this machine. Tests use it.
 1. The executor records GPU use. It does not refuse a FIXED task when another process uses the GPU.
 2. An SSH server needs `git`, `docker`, `bash`, `setsid`, `base64`, and `sha256sum`. No SSH server was tested.
 3. A task needs a running container. The executor does not create containers.
+
+## 11. Phase 2 — Tower permissions and ET operation
+
+### 11.1 Settings
+
+1. `settings/<tower>.json` is a template with `{{DATA_ROOT}}` and `{{HARNESS}}`.
+2. `harness tower start` writes the filled file to `<data-root>/runtime/settings/<tower>.json`. It sets `HARNESS_DATA_ROOT` in `env` and creates the draft directory of the tower.
+3. Each tower uses `defaultMode: dontAsk`. A tool call that no allow rule covers is refused without a prompt.
+4. `blockReadsOutsideWorkingDirectories` is true. The working directories are the harness repository and the data root.
+
+### 11.2 Permission matrix
+
+| Action | DT | ET | VT |
+|---|---|---|---|
+| Read records, handoffs, reports, verdicts | Yes | Yes | Yes |
+| Read `workspace/` and `runtime/logs/` | No | Yes | Yes |
+| Write own draft directory | Yes | Yes | Yes |
+| Write `state/PROJECT_STATE.md` | Yes | No | No |
+| Write `workspace/` | No | Yes | No |
+| Write the harness repository | No | No | No |
+| `harness publish` | handoff as DT | task and report as ET | verdict as VT |
+| `harness executor`, `tower`, `init`, `--data-root` | No | No | No |
+| Git | No | Yes, without force push, `reset --hard`, or `clean` | `git -C` read commands |
+| Run a script file with `python3` | No | Yes | Yes |
+| Web search and fetch | Yes | No | No |
+
+### 11.3 Sandbox
+
+The settings templates contain a Bash sandbox block. `harness tower start` keeps it only when `config.json` has `"towers": {"sandbox": true}`.
+On this machine the sandbox cannot start. Ubuntu 24.04 sets `kernel.apparmor_restrict_unprivileged_userns=1`, and bubblewrap then fails. A root change (an AppArmor profile for bubblewrap, or the sysctl) is necessary before the sandbox can be on.
+
+### 11.4 ET waiting
+
+After ET publishes a task, ET starts `harness wait <task>` as a background command and ends its turn. Claude Code starts a new turn when the command ends. ET uses no tokens while it waits.
+
+### 11.5 Findings from live tests
+
+1. Claude Code never auto-allows inline code such as `python3 -c`. A script file with `python3 <file>` is allowed. The tower rules require script files.
+2. Claude Code refused `cd <other directory> && git ...` in dontAsk mode. `git -C <path>` is allowed. The tower rules forbid `cd`.
+3. Claude Code protects `~/.claude`. A data root under `~/.claude` makes draft writes fail.
+4. A tower model refuses a step that its rules forbid before the permission system decides. Permission tests must state that the researcher authorized the attempt.
+
+### 11.6 Phase 2 result (2026-10-08)
+
+| Check | Result |
+|---|---|
+| Unit tests | 39 PASS |
+| DT probe: Read tool and `cat` on workspace code, write to the harness repository, `harness executor` | Refused |
+| DT probe: write own draft, write `PROJECT_STATE.md`, `harness root` | Allowed |
+| VT probe: write workspace, `python3` script that writes workspace, publish a task as ET | Refused (the `python3 -c` form) |
+| ET probe: write `state/`, `git push --force`, publish a handoff as DT | Refused |
+| ET end to end (Sonnet, background session): write a script, commit, push, publish a task, wait in the background, read the result, publish a report, send REPORT_READY to DT | PASS without researcher input after the first prompt |
+| Ledger for the end-to-end test | One sent and one received REPORT_READY with parsed headers |
+| `harness verify` after the end-to-end test | 0 problems |
+
+### 11.7 Known limits
+
+1. Without the sandbox, a script that ET or VT runs can write any path that the user can write.
+2. VT cannot read output files on a server. A result gives their size and SHA-256 only. A content check needs an `inspect` task or a later output-fetch feature.
+3. The researcher starts the executor daemon and the towers.
 
 ## 9. Open decisions
 

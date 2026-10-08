@@ -113,10 +113,10 @@ def cmd_wait(args) -> int:
 
 def cmd_tower(args) -> int:
     if args.action == "start":
-        session = tower.start(args.name)
+        session = tower.start(args.name, find_data_root(args.data_root), args.model, args.prompt)
         print(json.dumps(session, ensure_ascii=False))
     elif args.action == "command":
-        print(" ".join(tower.start_command(args.name)))
+        print(" ".join(tower.start_command(args.name, find_data_root(args.data_root), args.model)))
     else:
         for session in tower.sessions():
             if session.get("name") in tower.TOWERS:
@@ -181,6 +181,8 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("tower", help="start or list tower sessions")
     p.add_argument("action", choices=("start", "status", "command"))
     p.add_argument("name", nargs="?", choices=tower.TOWERS)
+    p.add_argument("--model", help="model for the session, such as sonnet or opus")
+    p.add_argument("--prompt", help="first prompt for the session")
     p.set_defaults(func=cmd_tower)
     return parser
 

@@ -26,10 +26,13 @@ bin/harness show <ID or reference>
 bin/harness verify                               # check hashes, journal, schemas, and references
 bin/harness message --type STATUS --body-file b.md   # format a cross-session message
 bin/harness messages --last 20                   # print the message ledger
+bin/harness executor watch                       # run published tasks (one daemon for each data root)
+bin/harness executor status
+bin/harness wait <task-id> --timeout-minutes 30    # wait for a result and print it
 bin/harness tower start et                       # start a tower session in the background
 python3 -m unittest discover -s tests -t .
 ```
 
 ## Status
 
-Phase 0 is complete. See `docs/DESIGN.md` section 8.1. The executor is Phase 1.
+Phase 0 and Phase 1 are complete. See `docs/DESIGN.md` sections 8.1 and 10.5.

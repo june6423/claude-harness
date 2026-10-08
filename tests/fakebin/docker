@@ -1,0 +1,39 @@
+#!/usr/bin/env python3
+"""Test double for docker. A container named C maps to the host directory tree.
+
+Supported: `docker inspect -f FORMAT C` and
+`docker exec [-d] [-w DIR] [-e K=V]... C CMD...`.
+A container name that starts with 'stopped' reports State.Running false.
+"""
+import os
+import subprocess
+import sys
+
+args = sys.argv[1:]
+if args[:1] == ["inspect"]:
+    name = args[-1]
+    print(("false" if name.startswith("stopped") else "true") + " sha256:fakeimage")
+    sys.exit(0)
+if args[:1] != ["exec"]:
+    sys.exit(f"fake docker: unsupported {args}")
+args = args[1:]
+detach, workdir, env = False, None, dict(os.environ)
+while args and args[0].startswith("-"):
+    flag = args.pop(0)
+    if flag == "-d":
+        detach = True
+    elif flag == "-w":
+        workdir = args.pop(0)
+    elif flag == "-e":
+        key, _, value = args.pop(0).partition("=")
+        env[key] = value
+    else:
+        sys.exit(f"fake docker: unsupported flag {flag}")
+command = args[1:]
+if command and command[0] == "setsid":
+    command = command[1:]
+if detach:
+    subprocess.Popen(command, cwd=workdir, env=env, start_new_session=True,
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    sys.exit(0)
+sys.exit(subprocess.run(command, cwd=workdir, env=env).returncode)

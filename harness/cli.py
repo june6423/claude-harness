@@ -76,6 +76,41 @@ def cmd_messages(args) -> int:
     return 0
 
 
+def cmd_executor(args) -> int:
+    from .executor import Executor, Worker
+    store = Store(find_data_root(args.data_root))
+    if args.action == "watch":
+        Executor(store).watch(once=args.once)
+    elif args.action == "status":
+        for row in Executor(store).status():
+            print(json.dumps(row, ensure_ascii=False))
+    else:
+        if not args.task:
+            raise RecordError("executor worker needs a task ID")
+        Worker(store, args.task).run()
+    return 0
+
+
+def cmd_wait(args) -> int:
+    import time
+    store = Store(find_data_root(args.data_root))
+    task_id = args.task.split("@", 1)[0]
+    store.load(task_id)
+    deadline = time.monotonic() + args.timeout_minutes * 60
+    result_id = f"RESULT-{task_id}"
+    while not store.path_of(result_id).exists():
+        if time.monotonic() > deadline:
+            print(f"WAITING {task_id}: no result after {args.timeout_minutes} minutes")
+            return 3
+        time.sleep(args.poll_seconds)
+    record = store.load(result_id)
+    fields = record.fields
+    print(record.ref)
+    print(json.dumps({k: fields[k] for k in ("outcome", "transport", "preflight", "exit_code",
+                                             "missing_outputs", "message")}, ensure_ascii=False))
+    return 0
+
+
 def cmd_tower(args) -> int:
     if args.action == "start":
         session = tower.start(args.name)
@@ -130,6 +165,18 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("messages", help="print the message ledger")
     p.add_argument("--last", type=int)
     p.set_defaults(func=cmd_messages)
+
+    p = sub.add_parser("executor", help="run the executor daemon, show its status, or run one worker")
+    p.add_argument("action", choices=("watch", "status", "worker"))
+    p.add_argument("task", nargs="?")
+    p.add_argument("--once", action="store_true", help="watch: run one scan and exit")
+    p.set_defaults(func=cmd_executor)
+
+    p = sub.add_parser("wait", help="wait for the result of a task and print it")
+    p.add_argument("task", help="task ID or reference")
+    p.add_argument("--timeout-minutes", type=float, default=60)
+    p.add_argument("--poll-seconds", type=float, default=5)
+    p.set_defaults(func=cmd_wait)
 
     p = sub.add_parser("tower", help="start or list tower sessions")
     p.add_argument("action", choices=("start", "status", "command"))

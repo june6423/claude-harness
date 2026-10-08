@@ -1,6 +1,6 @@
 # Harness Design — Phase 0
 
-Status: APPROVED by the researcher on 2026-10-08. Phase 0 is complete (section 8.1).
+Status: APPROVED by the researcher on 2026-10-08. Phase 0 is complete (section 8.1). Phase 1 is complete (section 10.5).
 
 ## 1. Decisions
 
@@ -152,7 +152,7 @@ Rules that the CLI checks:
   "branch": "exp/...",
   "commit": "<40 hex>",
   "runtime": {"container": "NAME"} ,
-  "entrypoint": ["bash", "scripts/run_main.sh", "--shard", "0"],
+  "entrypoint": ["scripts/run_main.sh", "--shard", "0"],
   "env": {"KEY": "VALUE"},
   "output_root": "/abs/server/path",
   "required_outputs": ["run/scores.jsonl", "run/metrics.json"],
@@ -165,7 +165,7 @@ Rules that the CLI checks:
 
 Rules for `run` and `allocate-run`:
 
-1. The entrypoint file must exist in the repository at `commit`.
+1. `entrypoint[0]` is a script path inside the repository. The file must have mode 100755 at `commit`.
 2. The entrypoint runs inside the container. The executor does not run host Python.
 3. A FULL task needs `pre_run_verdict`. The executor checks that the verdict is VALID, has kind PRE_RUN, and names the same commit and handoff.
 
@@ -317,6 +317,69 @@ Exit criteria:
 | 2. The CLI accepts converted records. | PASS | `test_converted_handoff_verdict_and_task` publishes a handoff, a verdict, and a FULL task from `research_control` records. |
 | 3. The CLI refuses invalid fixtures with a specific error. | PASS | Tests in `tests/test_store.py` check each error text. |
 | 4. Two sessions exchange one message and the ledger records it. | PASS | Live test with the `et` and `vt` agents, settings, and Haiku: one `sent` entry and one `received` entry, both with a parsed header. |
+
+## 10. Phase 1 — Executor
+
+### 10.1 Server configuration
+
+```json
+{
+  "executor": {"poll_seconds": 10},
+  "ssh": {"connect_timeout_seconds": 15, "control_persist_seconds": 120},
+  "servers": {
+    "<server>": {
+      "transport": "ssh | local",
+      "ssh_host": "<ssh config host>",
+      "agent_command": "claude",
+      "repos": {
+        "<repo key>": {
+          "path": "<checkout path on the server host>",
+          "containers": {"<container>": {"workdir": "<checkout path in the container>"}}
+        }
+      }
+    }
+  }
+}
+```
+
+The `local` transport runs commands on this machine. Tests use it.
+
+### 10.2 Daemon and workers
+
+1. `harness executor watch` claims each task that has no result and no claim. One daemon runs for one data root.
+2. The daemon starts one detached worker for each claim. A dead worker gets a new worker.
+3. One `run` task at a time uses a server and repository pair. The pair has one checkout.
+4. The worker checks the task again with the same code as `harness publish`. A failed check gives a REJECTED result.
+
+### 10.3 Run mode
+
+1. Preflight on the host: no tracked changes, fetch the branch, switch, fast-forward only, HEAD equals the commit, and `entrypoint[0]` has mode 100755 at the commit.
+2. Preflight in the container: the container runs, the entrypoint is executable, and `output_root` is writable. The worker records the image and the GPU list.
+3. Launch: `docker exec -d` starts a wrapper with `setsid`. The wrapper writes `pid`, `stdout`, `stderr`, and `exit_code` in `<output_root>/.harness/<task-id>/`.
+4. Poll: the worker copies new log bytes to `runtime/logs/` and checks the exit code. At the timeout, the worker stops the process group.
+5. Finalize: the worker computes the size and SHA-256 of each required output. Then it publishes the result.
+6. A new worker reads the receipt in `runtime/executor/live/`. If the run started, the worker reattaches and does not launch again.
+
+### 10.4 Other modes
+
+- `gpu-status`: `nvidia-smi` on the host.
+- `inspect`: the server agent runs in plan mode without Edit and Write. The result message is its final text.
+- `allocate-run`: not implemented. The executor gives a REJECTED result.
+
+### 10.5 Phase 1 result (2026-10-08)
+
+| Check | Result |
+|---|---|
+| Unit tests with the local transport and a fake docker: pass, non-zero exit, missing output, entrypoint not executable, commit mismatch, tracked changes, stopped container, timeout, unknown container, allocate-run, reattach, daemon slots, dead worker | 14 PASS |
+| Real docker container on this machine: run mode | PASS with logs, output hash, image, and GPU list |
+| Real docker: `output_root` not writable (user namespace remap) | Preflight FAIL with a specific message |
+| gpu-status and inspect with the local transport | PASS |
+
+### 10.6 Known limits
+
+1. The executor records GPU use. It does not refuse a FIXED task when another process uses the GPU.
+2. An SSH server needs `git`, `docker`, `bash`, `setsid`, `base64`, and `sha256sum`. No SSH server was tested.
+3. A task needs a running container. The executor does not create containers.
 
 ## 9. Open decisions
 

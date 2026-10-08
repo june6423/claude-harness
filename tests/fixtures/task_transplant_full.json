@@ -14,7 +14,6 @@
     "container": "VLM_TRANSPLANT_A6000_001"
   },
   "entrypoint": [
-    "bash",
     "scripts/run_native_base_main.sh"
   ],
   "instructions": "NONE",

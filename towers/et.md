@@ -72,7 +72,7 @@ Run these commands from the harness repository.
   "server": "<server>", "repo": "<server repo key>",
   "branch": "<branch>", "commit": "<full commit SHA>",
   "runtime": {"container": "<container>"},
-  "entrypoint": ["bash", "<script in the repository>"], "instructions": "NONE",
+  "entrypoint": ["<executable script in the repository>", "<argument>"], "instructions": "NONE",
   "env": {}, "output_root": "<absolute server path>", "required_outputs": ["<relative path>"],
   "gpu": "NONE", "timeout_seconds": 3600, "pre_run_verdict": "NONE",
   "lineage": {"parent": "NONE", "recovery_of": "NONE", "attempt": 0}
@@ -80,7 +80,7 @@ Run these commands from the harness repository.
 ```
 
 35. For a direct user request, set `source` to USER and copy the request verbatim into `user_request`.
-36. Put each multi-step run in one script in the repository. The entrypoint runs that script. The script writes each required output.
+36. Put each multi-step run in one executable script in the repository. Commit the script with mode 755. The executor runs the script in the container from the repository directory. The script writes each required output under `output_root`.
 37. A report draft has the front matter below and four body sections: `## Changes`, `## Evidence`, `## Proposals`, and `## Deviations`. Write NONE in an empty section.
 
 ```text

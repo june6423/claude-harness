@@ -304,6 +304,9 @@ def validate_task(fields: dict[str, Any], body: str = "") -> list[str]:
             c.error(f"mode {mode} needs a non-empty entrypoint")
         elif not execution and entrypoint:
             c.error(f"mode {mode} needs an empty entrypoint")
+        elif entrypoint and (entrypoint[0].startswith(("/", "-")) or ".." in entrypoint[0].split("/")
+                             or "/" not in entrypoint[0].lstrip("./")):
+            c.error("entrypoint[0] must be a script path inside the repository, such as scripts/run.sh")
 
     env = fields.get("env")
     if "env" in fields and not (isinstance(env, dict) and all(

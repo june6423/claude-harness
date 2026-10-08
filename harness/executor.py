@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import base64
 import fcntl
+import hashlib
 import json
 import os
 import shlex
@@ -29,6 +30,8 @@ from .transport import Completed, Transport
 LOG_CHUNK_BYTES = 1 << 20
 TAIL_BYTES = 4000
 START_GRACE_SECONDS = 30
+DEFAULT_FETCH_MAX_FILE_BYTES = 1 << 20
+DEFAULT_FETCH_MAX_TOTAL_BYTES = 20 << 20
 
 
 def utc(epoch: float | None = None) -> str:
@@ -81,7 +84,8 @@ class Paths:
         self.claims = base / "claims"
         self.live = base / "live"
         self.logs = store.root / "runtime" / "logs"
-        self.ssh = store.root / "runtime" / "ssh"
+        # A Unix socket path has a limit of about 108 bytes, so SSH sockets use a short path.
+        self.ssh = Path(f"/tmp/harness-{os.getuid()}") / "ssh"
         self.lock = base / "executor.lock"
 
     def claim(self, task_id: str) -> Path:
@@ -467,13 +471,60 @@ class Worker:
             time.sleep(self.poll_seconds)
         self.update(phase="FINALIZING")
         outputs, missing = self.collect_outputs()
+        fetched, skipped = self.fetch_outputs(outputs)
         stderr_tail = self.stderr_log.read_text(encoding="utf-8", errors="replace")[-1000:] \
             if self.stderr_log.exists() else ""
         if message == NONE and exit_code not in (0, None):
             message = f"exit code {exit_code}. stderr tail: {stderr_tail}" if stderr_tail else f"exit code {exit_code}"
         self.publish_result(preflight="PASS", exit_code=exit_code, git=self.receipt.get("git", {}),
                             runtime=self.receipt.get("runtime", {}), outputs=outputs,
-                            missing_outputs=missing, message=message)
+                            missing_outputs=missing, message=message, fetched=fetched, fetch_skipped=skipped)
+
+    def fetch_outputs(self, outputs: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[str]]:
+        """Copy small required outputs to <data-root>/artifacts/<task-id>/ and check each SHA-256."""
+        wanted = self.task.get("fetch_outputs", [])
+        if not wanted:
+            return [], []
+        limits = self.store.config().get("executor", {})
+        max_file = int(limits.get("fetch_max_file_bytes", DEFAULT_FETCH_MAX_FILE_BYTES))
+        budget = int(limits.get("fetch_max_total_bytes", DEFAULT_FETCH_MAX_TOTAL_BYTES))
+        recorded = {o["path"]: o for o in outputs}
+        target_root = self.store.root / "artifacts" / self.task_id
+        fetched, skipped = [], []
+        for path in wanted:
+            output = recorded.get(path)
+            if output is None:
+                skipped.append(f"{path}: the output is missing")
+                continue
+            if output["bytes"] > max_file:
+                skipped.append(f"{path}: {output['bytes']} bytes is more than the file limit {max_file}")
+                continue
+            if output["bytes"] > budget:
+                skipped.append(f"{path}: {output['bytes']} bytes is more than the remaining task limit {budget}")
+                continue
+            local = target_root / path
+            if local.exists():
+                data = local.read_bytes()
+            else:
+                inner = f"base64 -w0 < {shlex.quote(self.task['output_root'].rstrip('/') + '/' + path)}"
+                done = self.shell(self.docker(self.container, inner), timeout=600)
+                if done.code != 0:
+                    skipped.append(f"{path}: the copy failed. {done.stderr[-300:]}")
+                    continue
+                data = base64.b64decode(done.stdout.strip() or b"")
+            digest = hashlib.sha256(data).hexdigest()
+            if digest != output["sha256"]:
+                skipped.append(f"{path}: the copied SHA-256 {digest} is not the recorded SHA-256")
+                continue
+            if not local.exists():
+                local.parent.mkdir(parents=True, exist_ok=True)
+                descriptor = os.open(local, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o444)
+                with os.fdopen(descriptor, "wb") as handle:
+                    handle.write(data)
+            budget -= len(data)
+            fetched.append({"path": path, "bytes": len(data), "sha256": digest,
+                            "local_path": str(local.relative_to(self.store.root))})
+        return fetched, skipped
 
     def collect_outputs(self) -> tuple[list[dict[str, Any]], list[str]]:
         q = shlex.quote

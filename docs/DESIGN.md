@@ -94,6 +94,7 @@ One data root holds the records of one research project. The harness repository 
 │   ├── verdict/VERDICT-<exp>-<n>.md
 │   ├── task/TASK-<exp>-<n>.json
 │   └── result/RESULT-<task-id>.json
+├── artifacts/<task-id>/             # fetched small outputs (section 13)
 ├── state/PROJECT_STATE.md           # DT keeps this file current
 ├── workspace/<repo>/                # workspace clones (D13), not in the data root Git
 ├── journal.jsonl
@@ -380,6 +381,7 @@ The `local` transport runs commands on this machine. Tests use it.
 1. The executor records GPU use. It does not refuse a FIXED task when another process uses the GPU.
 2. An SSH server needs `git`, `docker`, `bash`, `setsid`, `base64`, and `sha256sum`. No SSH server was tested.
 3. A task needs a running container. The executor does not create containers.
+4. SSH connection sockets are in `/tmp/harness-<uid>/ssh/` (mode 700). A socket under a long data root path was over the Unix socket path limit (found 2026-10-08).
 
 ## 11. Phase 2 — Tower permissions and ET operation
 
@@ -501,6 +503,15 @@ Server `POSTECH_900_A6000_8`, container `VLM_EGG_QUAL_A6000_001`, a new test fol
 1. ET cannot push over SSH in the sandbox. The sandbox network allows HTTP hosts only. A real project needs a GitHub origin or a sandbox exception.
 2. No server has `claude`, so `inspect` mode does not work on the servers yet.
 3. VT cannot read output files. It checks hashes in the result records.
+
+## 13. Fetched outputs
+
+1. A run task can list `fetch_outputs`. Each path must also be in `required_outputs`.
+2. After the run, the executor copies each listed file to `<data-root>/artifacts/<task-id>/<path>`. The limits are `executor.fetch_max_file_bytes` (default 1 MiB) and `executor.fetch_max_total_bytes` (default 20 MiB).
+3. The executor compares the SHA-256 of the copy with the SHA-256 that it computed in the container. A mismatch, a missing file, or a file over a limit goes to `fetch_skipped`.
+4. A copied file is read-only. The result lists it in `fetched`. `harness verify` checks each copy against its SHA-256.
+5. `artifacts/` is inside the data root Git repository. All towers can read it.
+6. SSH test on the A6000 server (2026-10-08): a 29-byte metrics file was copied with a matching SHA-256. A 3 MB file went to `fetch_skipped` with the size reason.
 
 ## 9. Open decisions
 

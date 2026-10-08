@@ -50,6 +50,7 @@ def init_data_root(path: Path, write_pointer: bool = True) -> Path:
     path = path.expanduser().resolve()
     for kind in KINDS:
         (path / "records" / kind).mkdir(parents=True, exist_ok=True)
+    (path / "artifacts").mkdir(exist_ok=True)
     (path / "state").mkdir(exist_ok=True)
     (path / "runtime").mkdir(exist_ok=True)
     (path / "workspace").mkdir(exist_ok=True)
@@ -319,6 +320,12 @@ class Store:
                     validate(kind, fields, record.body)
                 except RecordError as error:
                     problems.append(f"{record_id}: {error}")
+                for item in record.fields.get("fetched", []) if kind == "result" else []:
+                    local = self.root / item.get("local_path", "")
+                    if not local.is_file():
+                        problems.append(f"{record_id}: fetched file {item.get('local_path')} is missing")
+                    elif sha256_bytes(local.read_bytes()) != item.get("sha256"):
+                        problems.append(f"{record_id}: fetched file {item.get('local_path')} does not match its SHA-256")
                 for ref in _refs_in(record.fields):
                     try:
                         self.resolve(ref, kind_of_id(parse_ref(ref)[0]))

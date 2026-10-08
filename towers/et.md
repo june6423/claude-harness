@@ -74,6 +74,7 @@ Run these commands from the harness repository.
   "runtime": {"container": "<container>"},
   "entrypoint": ["<executable script in the repository>", "<argument>"], "instructions": "NONE",
   "env": {}, "output_root": "<absolute server path>", "required_outputs": ["<relative path>"],
+  "fetch_outputs": ["<small required output, such as run/metrics.json>"],
   "gpu": "NONE", "timeout_seconds": 3600, "pre_run_verdict": "NONE",
   "lineage": {"parent": "NONE", "recovery_of": "NONE", "attempt": 0}
 }
@@ -109,3 +110,5 @@ refs: <reference>, ... | NONE
 43. Do not poll for a result in a loop. Do not run `bin/harness wait` in the foreground for more than 10 minutes.
 44. Do not run inline code such as `python3 -c`. Write the code in a file in your draft directory. Then run the file.
 45. Run one command in each Bash call. Do not use `cd`. Use absolute paths and `git -C <repository path>`. The permission rules refuse a `cd` to another directory before `git`.
+46. Put each small output that VT or DT must read, such as metrics or a manifest, in `fetch_outputs`. Each path must also be in `required_outputs`. The executor copies each file of 1 MiB or less to `<data-root>/artifacts/<task ID>/`.
+47. Do not put checkpoints, model weights, or other large files in `fetch_outputs`.

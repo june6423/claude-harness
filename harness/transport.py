@@ -42,6 +42,8 @@ class Transport:
         if self.kind == "local":
             return ["bash", "-c", command]
         self.control_dir.mkdir(parents=True, exist_ok=True)
+        os.chmod(self.control_dir.parent, 0o700)
+        os.chmod(self.control_dir, 0o700)
         cfg = self.ssh_config
         return [
             "ssh", "-T", "-o", "BatchMode=yes",

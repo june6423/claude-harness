@@ -98,6 +98,35 @@ class ExecutorTest(unittest.TestCase):
         self.assertEqual(stdout, "line one\n")
         self.assertEqual(self.store.verify(), [])
 
+    def test_fetch_outputs(self):
+        result = self.run_task(fetch_outputs=["run/metrics.json"])
+        self.assertEqual(result["outcome"], "PASS")
+        item = result["fetched"][0]
+        local = self.root / item["local_path"]
+        self.assertEqual(local.read_text(), '{"acc": 1}\n')
+        self.assertEqual(local.stat().st_mode & 0o777, 0o444)
+        self.assertEqual(item["sha256"], result["outputs"][0]["sha256"])
+        self.assertEqual(result["fetch_skipped"], [])
+        self.assertEqual(self.store.verify(), [])
+        os.chmod(local, 0o644)
+        local.write_text("changed")
+        self.assertTrue(any("does not match its SHA-256" in p for p in self.store.verify()))
+
+    def test_fetch_respects_the_size_limit(self):
+        config = json.loads((self.root / "config.json").read_text())
+        config["executor"]["fetch_max_file_bytes"] = 5
+        (self.root / "config.json").write_text(json.dumps(config))
+        result = self.run_task(fetch_outputs=["run/metrics.json"])
+        self.assertEqual(result["outcome"], "PASS")
+        self.assertEqual(result["fetched"], [])
+        self.assertIn("more than the file limit", result["fetch_skipped"][0])
+
+    def test_fetch_path_must_be_a_required_output(self):
+        from harness.records import RecordError
+        with self.assertRaises(RecordError) as caught:
+            self.task(fetch_outputs=["run/other.json"])
+        self.assertIn("must also be in required_outputs", str(caught.exception))
+
     def test_env_reaches_the_script(self):
         result = self.run_task("scripts/envcheck.sh", env={"MARK": "hello"})
         self.assertEqual(result["outcome"], "PASS")

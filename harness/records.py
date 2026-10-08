@@ -247,7 +247,7 @@ def validate_task(fields: dict[str, Any], body: str = "") -> list[str]:
     c.keys(("kind", "experiment_id", "handoff", "source", "user_request", "mode", "execution_class",
             "server", "repo", "branch", "commit", "runtime", "entrypoint", "instructions", "env",
             "output_root", "required_outputs", "gpu", "timeout_seconds", "pre_run_verdict", "lineage"),
-           ("id",))
+           ("id", "fetch_outputs"))
     _common(c, "task")
     c.pattern("experiment_id", EXPERIMENT_RE, "an upper-case experiment ID")
     c.ref("handoff", allow_none=True)
@@ -335,6 +335,17 @@ def validate_task(fields: dict[str, Any], body: str = "") -> list[str]:
                     c.error("each required output must be a relative path inside output_root")
                     break
 
+    fetch = fields.get("fetch_outputs", [])
+    if not isinstance(fetch, list) or any(not isinstance(p, str) for p in fetch):
+        c.error("'fetch_outputs' must be a list of paths")
+    elif fetch:
+        if not execution:
+            c.error(f"mode {mode} needs an empty fetch_outputs list")
+        elif isinstance(outputs, list) and any(p not in outputs for p in fetch):
+            c.error("each path in fetch_outputs must also be in required_outputs")
+        if len(set(fetch)) != len(fetch):
+            c.error("fetch_outputs must not repeat a path")
+
     gpu = fields.get("gpu")
     if "gpu" in fields and gpu != NONE:
         g = Checker(gpu if isinstance(gpu, dict) else {}, "gpu: ")
@@ -387,7 +398,8 @@ def compute_outcome(fields: dict[str, Any]) -> str:
 def validate_result(fields: dict[str, Any], body: str = "") -> list[str]:
     c = Checker(fields)
     c.keys(("kind", "task", "transport", "preflight", "exit_code", "outcome", "git", "runtime",
-            "outputs", "missing_outputs", "started_at", "ended_at", "logs", "message"), ("id",))
+            "outputs", "missing_outputs", "started_at", "ended_at", "logs", "message"),
+           ("id", "fetched", "fetch_skipped"))
     _common(c, "result")
     c.ref("task")
     c.choice("transport", ("OK", "ERROR"))
@@ -411,6 +423,20 @@ def validate_result(fields: dict[str, Any], body: str = "") -> list[str]:
                 o.integer("bytes", 0)
                 o.pattern("sha256", re.compile(r"^[0-9a-f]{64}$"), "a SHA-256 hex digest")
                 c.errors.extend(o.errors)
+    fetched = fields.get("fetched", [])
+    if not isinstance(fetched, list):
+        c.error("'fetched' must be a list")
+    else:
+        for item in fetched:
+            f = Checker(item if isinstance(item, dict) else {}, "fetched: ")
+            f.keys(("path", "bytes", "sha256", "local_path"))
+            f.text("path")
+            f.text("local_path")
+            f.integer("bytes", 0)
+            f.pattern("sha256", re.compile(r"^[0-9a-f]{64}$"), "a SHA-256 hex digest")
+            c.errors.extend(f.errors)
+    if "fetch_skipped" in fields:
+        c.string_list("fetch_skipped")
     for key in ("git", "runtime", "logs"):
         if key in fields and not isinstance(fields[key], dict):
             c.error(f"'{key}' must be an object")

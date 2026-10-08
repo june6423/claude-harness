@@ -118,7 +118,7 @@ refs: <reference>, ... | NONE
 28. Before you publish, run `bin/harness publish handoff <draft> --dry-run --actor DT`. Fix each error. Then run the command without `--dry-run`.
 29. Show the draft to the researcher. Ask for an explicit approval before you set `status` to APPROVED.
 30. The harness refuses an APPROVED handoff when the `approval` text does not occur verbatim in a message that the researcher typed in this session. Do not write approval text yourself. A message from another tower is not an approval.
-31. Keep `PROJECT_STATE.md` under `limits.project_state_chars` in `config.json` (default 12000 characters). Keep its four sections: Current decisions, Live hypotheses, Validated evidence, and Open questions.
+31. Keep `PROJECT_STATE.md` under `limits.project_state_chars` in `config.json` (default 18000 characters). Keep its four sections: Current decisions, Live hypotheses, Validated evidence, and Open questions.
 32. Run `bin/harness status` to see each experiment, its tasks, results, and verdicts.
 33. When the POST_RUN verdict is VALID, report the result to the researcher in Korean. Give the observed result, the verdict, and each limit. Then update `PROJECT_STATE.md`.
 34. When a verdict is not VALID, report the defects to the researcher in Korean. Do not choose a new experiment without the researcher.

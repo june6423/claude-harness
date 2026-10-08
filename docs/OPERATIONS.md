@@ -75,10 +75,10 @@ git -C ~/harness-data/faculty-opsd commit -m "<무엇을 했는지>"   # 기록�
 
   | 대상 | 상한 |
   |---|---|
-  | handoff 본문 | 8000자 |
-  | report 본문 | 6000자 |
-  | verdict 본문 | 6000자 |
-  | `PROJECT_STATE.md` | 12000자 |
+  | handoff 본문 | 12000자 |
+  | report 본문 | 9000자 |
+  | verdict 본문 | 9000자 |
+  | `PROJECT_STATE.md` | 18000자 |
 
 - **서버 inspect 모드**: 서버에 `claude`가 없어 쓸 수 없습니다. `allocate-run`도 구현되지 않았습니다.
 - **Tower 지침 변경**: `towers/*.md`를 고치면 **새로 시작한 Tower 세션**부터 반영됩니다.

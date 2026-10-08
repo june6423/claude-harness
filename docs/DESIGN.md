@@ -526,10 +526,10 @@ Server `POSTECH_900_A6000_8`, container `VLM_EGG_QUAL_A6000_001`, a new test fol
 
 1. `harness handoff-draft <experiment>` writes the next revision with `revision` and `predecessor` filled. It copies the gates and body of the latest revision, sets DRAFT, and clears `approval`.
 2. `harness publish ... --dry-run` runs every check and stores nothing.
-3. Body limits: `limits.handoff_body_chars` (8000), `report_body_chars` (6000), `verdict_body_chars` (6000). `harness publish` refuses a longer body.
+3. Body limits: `limits.handoff_body_chars` (12000), `report_body_chars` (9000), `verdict_body_chars` (9000). The researcher raised each limit by 1.5 times on 2026-10-08, because STE text is longer. `harness publish` refuses a longer body.
 4. `hooks/dt_guard.py` runs before each DT tool call:
    - An APPROVED handoff publish needs the `approval` text verbatim in a message that the researcher typed in the DT session. The hook reads the transcript. A researcher message has origin kind `human`, or no origin and a `promptId` in print mode. Peer messages, task notifications, tool output, and meta entries do not count. If the transcript cannot be read, the hook blocks.
-   - A Write or Edit of `state/PROJECT_STATE.md` must not exceed `limits.project_state_chars` (12000).
+   - A Write or Edit of `state/PROJECT_STATE.md` must not exceed `limits.project_state_chars` (18000).
 5. `harness init` writes `PROJECT_STATE.md` with four sections: Current decisions, Live hypotheses, Validated evidence, Open questions.
 6. `harness status` gives each experiment with its latest handoff, tasks, outcomes, and verdicts.
 7. `harness git <repo> <push|fetch|pull|ls-remote>` is the network Git path for ET. The sandbox hides `~/.local/bin/gh`, so the Git credential helper fails in the sandbox. The command runs outside the sandbox, uses only `origin`, requires the origin URL to equal the configured workspace remote, and refuses force, delete, mirror, and refspec forms that rewrite or remove history. ET settings deny `git remote add`, `remote set-url`, `config`, and pushes to an explicit URL.

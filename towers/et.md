@@ -112,3 +112,4 @@ refs: <reference>, ... | NONE
 45. Run one command in each Bash call. Do not use `cd`. Use absolute paths and `git -C <repository path>`. The permission rules refuse a `cd` to another directory before `git`.
 46. Put each small output that VT or DT must read, such as metrics or a manifest, in `fetch_outputs`. Each path must also be in `required_outputs`. The executor copies each file of 1 MiB or less to `<data-root>/artifacts/<task ID>/`.
 47. Do not put checkpoints, model weights, or other large files in `fetch_outputs`.
+48. Set `output_root` to a new directory under `server_outputs` of the workspace in `<data-root>/config.json`. Use one directory for each task, such as `<server_outputs>/<experiment ID>/<task ID>`.

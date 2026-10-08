@@ -345,6 +345,13 @@ Exit criteria:
 
 The `local` transport runs commands on this machine. Tests use it.
 
+Each server repository is a checkout that only the harness uses, such as `/home/vision/dongjun/harness/faculty-opsd`. The executor fetches and switches branches in it. Checkouts that people or older tools use are not in the configuration. The workspace entry gives the server repository keys and the output directory:
+
+```json
+"workspaces": {"<key>": {"path": "workspace/<repo>", "remote": "<url>", "default_branch": "main",
+                         "server_repos": ["<repo key>"], "server_outputs": "<container path>"}}
+```
+
 ### 10.2 Daemon and workers
 
 1. `harness executor watch` claims each task that has no result and no claim. One daemon runs for one data root.

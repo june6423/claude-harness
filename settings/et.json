@@ -65,7 +65,9 @@
     "failIfUnavailable": true,
     "allowUnsandboxedCommands": false,
     "excludedCommands": [
-      "bin/harness *"
+      "bin/harness *",
+      "./bin/harness *",
+      "{{HARNESS}}/bin/harness *"
     ],
     "filesystem": {
       "allowWrite": [

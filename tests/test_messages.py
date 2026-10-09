@@ -128,6 +128,7 @@ class TowerCommandTest(unittest.TestCase):
             self.assertEqual(command[-4:], ["--resume", "8cdef581-full-id", "--system-prompt-snapshot", "off"])
 
     def test_every_tower_template_renders(self):
+        from harness.store import REPO_ROOT
         from harness.tower import TOWERS, render_settings
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -140,6 +141,10 @@ class TowerCommandTest(unittest.TestCase):
                 settings = json.loads(render_settings(name, root).read_text())
                 self.assertTrue(settings["sandbox"]["enabled"])
                 self.assertTrue(settings["sandbox"]["failIfUnavailable"])
+                # A tower can call the CLI by a relative or an absolute path (seen 2026-10-09).
+                self.assertIn(f"{REPO_ROOT}/bin/harness *", settings["sandbox"]["excludedCommands"])
+                self.assertIn(f"Bash({REPO_ROOT}/bin/harness executor *)", settings["permissions"]["deny"])
+                self.assertIn(f"Bash(./bin/harness root)", settings["permissions"]["allow"])
             dt = json.loads(render_settings("dt", root).read_text())
             self.assertNotIn(f"Read(/{root}/workspace/**)", dt["permissions"]["deny"])  # DT reads code (option B)
             self.assertIn(f"Edit(/{root}/workspace/**)", dt["permissions"]["deny"])

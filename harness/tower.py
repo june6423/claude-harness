@@ -40,6 +40,17 @@ def render_settings(tower: str, data_root: Path, repo: Path = REPO_ROOT) -> Path
         filesystem["denyWrite"] = [p for p in filesystem["denyWrite"] if p != str(repo)] + sorted(
             str(entry) for entry in repo.iterdir() if entry.name not in SANDBOX_PLACEHOLDERS + SANDBOX_PLACEHOLDER_DIRS)
     settings["env"] = {**settings.get("env", {}), "HARNESS_DATA_ROOT": str(data_root)}
+    # A tower can call the CLI as bin/harness, ./bin/harness, or by its absolute path. Permission
+    # rules and sandbox exclusions match command text, so each rule gets all three forms.
+    permissions = settings["permissions"]
+    for key in ("allow", "deny"):
+        rules = []
+        for rule in permissions.get(key, []):
+            rules.append(rule)
+            if rule.startswith("Bash(bin/harness"):
+                rest = rule[len("Bash(bin/harness"):]
+                rules += [f"Bash(./bin/harness{rest}", f"Bash({repo}/bin/harness{rest}"]
+        permissions[key] = rules
     text = json.dumps(settings, indent=2) + "\n"
     target = data_root / "runtime" / "settings" / f"{tower}.json"
     target.parent.mkdir(parents=True, exist_ok=True)

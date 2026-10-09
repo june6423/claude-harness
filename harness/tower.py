@@ -65,24 +65,47 @@ def start_command(tower: str, data_root: Path, model: str | None = None, name: s
     return command
 
 
-def sessions() -> list[dict]:
-    output = subprocess.run(["claude", "agents", "--json"], capture_output=True, text=True,
-                            check=True).stdout
+def sessions(include_finished: bool = False) -> list[dict]:
+    command = ["claude", "agents", "--json"] + (["--all"] if include_finished else [])
+    output = subprocess.run(command, capture_output=True, text=True, check=True).stdout
     return json.loads(output or "[]")
 
 
+def named(name: str) -> list[dict]:
+    """Every background session with this name, including finished ones."""
+    return [s for s in sessions(include_finished=True) if s.get("name") == name]
+
+
 def running(name: str) -> dict | None:
-    for session in sessions():
-        if session.get("name") == name and session.get("state") not in ("stopped", "failed"):
+    for session in named(name):
+        if session.get("state") not in ("stopped", "failed"):
             return session
     return None
 
 
+def stop(name: str) -> list[str]:
+    """Stop and remove each session with this name. The transcripts stay on disk."""
+    removed = []
+    for session in named(name):
+        subprocess.run(["claude", "stop", session["id"]], capture_output=True, text=True)
+        done = subprocess.run(["claude", "rm", session["id"]], capture_output=True, text=True)
+        if done.returncode != 0:
+            raise RecordError(f"cannot remove session {session['id']}: {done.stderr.strip() or done.stdout.strip()}")
+        removed.append(session["id"])
+    return removed
+
+
 def start(tower: str, data_root: Path, model: str | None = None, prompt: str | None = None,
-          wait_seconds: float = 15.0) -> dict:
+          wait_seconds: float = 15.0, replace: bool = False) -> dict:
     command = start_command(tower, data_root, model)
-    if running(tower):
-        raise RecordError(f"a session named {tower!r} already runs")
+    if replace:
+        stop(tower)
+    else:
+        existing = named(tower)
+        if existing:
+            ids = ", ".join(f"{s['id']} ({s.get('state')})" for s in existing)
+            raise RecordError(f"a session named {tower!r} exists: {ids}. "
+                              f"Run 'bin/harness tower restart {tower}' to stop and replace it")
     if prompt:
         command.append(prompt)
     subprocess.run(command, cwd=REPO_ROOT, check=True, stdout=subprocess.DEVNULL)

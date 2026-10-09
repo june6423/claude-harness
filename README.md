@@ -34,6 +34,8 @@ bin/harness executor watch                       # run published tasks (one daem
 bin/harness executor status
 bin/harness wait <task-id> --timeout-minutes 30    # wait for a result and print it
 bin/harness tower start et [--model sonnet] [--prompt TEXT]   # start a tower session in the background
+bin/harness tower restart et --model opus        # stop and remove sessions named et, then start
+bin/harness tower stop et
 python3 -m unittest discover -s tests -t .
 ```
 

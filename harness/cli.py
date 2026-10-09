@@ -186,9 +186,13 @@ def cmd_git(args) -> int:
 
 
 def cmd_tower(args) -> int:
-    if args.action == "start":
-        session = tower.start(args.name, find_data_root(args.data_root), args.model, args.prompt)
+    if args.action in ("start", "restart"):
+        session = tower.start(args.name, find_data_root(args.data_root), args.model, args.prompt,
+                              replace=args.action == "restart")
         print(json.dumps(session, ensure_ascii=False))
+    elif args.action == "stop":
+        removed = tower.stop(args.name)
+        print(f"stopped and removed: {', '.join(removed) or 'none'}")
     elif args.action == "command":
         print(" ".join(tower.start_command(args.name, find_data_root(args.data_root), args.model)))
     else:
@@ -269,7 +273,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_git)
 
     p = sub.add_parser("tower", help="start or list tower sessions")
-    p.add_argument("action", choices=("start", "status", "command"))
+    p.add_argument("action", choices=("start", "restart", "stop", "status", "command"))
     p.add_argument("name", nargs="?", choices=tower.TOWERS)
     p.add_argument("--model", help="model for the session, such as sonnet or opus")
     p.add_argument("--prompt", help="first prompt for the session")
@@ -279,8 +283,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    if args.command == "tower" and args.action in ("start", "command") and not args.name:
-        print("harness: tower start needs a tower name", file=sys.stderr)
+    if args.command == "tower" and args.action in ("start", "restart", "stop", "command") and not args.name:
+        print(f"harness: tower {args.action} needs a tower name", file=sys.stderr)
         return 2
     try:
         return args.func(args)

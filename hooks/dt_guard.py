@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Claude Code PreToolUse hook for DT. Exit code 2 blocks the tool call.
 
-1. `harness publish handoff <draft>` with status APPROVED: the `approval` text
-   must occur verbatim in a message that the researcher typed (transcript entry
-   with origin kind "human"). Peer messages and tool output do not count.
-   The check fails closed: if the transcript cannot be read, the call is blocked.
+1. `harness publish handoff <draft>` with status APPROVED, and `harness publish
+   directive <draft>`: the `approval` text (handoff) or the `instruction` text
+   (directive) must occur verbatim in a message that the researcher typed
+   (transcript entry with origin kind "human"). Peer messages and tool output do
+   not count. The check fails closed: if the transcript cannot be read, the
+   call is blocked.
 2. Write or Edit of state/PROJECT_STATE.md: the new file must not be longer
    than limits.project_state_chars.
 
@@ -22,7 +24,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-PUBLISH_RE = re.compile(r"(?:^|[\s;&|])(?:\S*/)?bin/harness\s+publish\s+handoff\s")
+PUBLISH_RE = re.compile(r"(?:^|[\s;&|])(?:\S*/)?bin/harness\s+publish\s+(handoff|directive)\s")
 
 
 def block(message: str) -> int:
@@ -69,15 +71,18 @@ def draft_path(command: str) -> str | None:
     except ValueError:
         return None
     for index, word in enumerate(words[:-2]):
-        if word.endswith("bin/harness") and words[index + 1] == "publish" and words[index + 2] == "handoff":
+        if word.endswith("bin/harness") and words[index + 1] == "publish" \
+                and words[index + 2] in ("handoff", "directive"):
             return words[index + 3] if index + 3 < len(words) else None
     return None
 
 
 def check_publish(event: dict) -> int:
     command = (event.get("tool_input") or {}).get("command", "")
-    if not PUBLISH_RE.search(" " + command):
+    match = PUBLISH_RE.search(" " + command)
+    if not match:
         return 0
+    kind = match.group(1)
     if "--dry-run" in command.split():
         return 0
     path = draft_path(command)
@@ -88,21 +93,25 @@ def check_publish(event: dict) -> int:
         fields, _ = split_front_matter(Path(path).read_text(encoding="utf-8"))
     except (OSError, RecordError):
         return 0  # the CLI reports the bad draft itself
-    if fields.get("status") != "APPROVED":
-        return 0
-    approval = normalize(str(fields.get("approval", "")))
+    if kind == "handoff":
+        if fields.get("status") != "APPROVED":
+            return 0
+        field = "approval"
+    else:
+        field = "instruction"
+    approval = normalize(str(fields.get(field, "")))
     if not approval or approval == "NONE":
-        return 0  # the CLI refuses an APPROVED handoff without approval
+        return 0  # the CLI refuses the draft itself
     try:
         messages = researcher_messages(event["transcript_path"])
     except (KeyError, OSError) as error:
-        return block(f"cannot read the session transcript to check the approval ({error}). "
-                     "Ask the researcher to publish the handoff with --actor RESEARCHER.")
+        return block(f"cannot read the session transcript to check the '{field}' text ({error}). "
+                     f"Ask the researcher to publish the {kind} with --actor RESEARCHER.")
     if any(approval in normalize(message) for message in messages):
         return 0
-    return block("the 'approval' text does not occur verbatim in any message that the researcher typed "
-                 "in this session. Only the researcher can approve a handoff. Ask the researcher for an "
-                 "explicit approval, then copy it verbatim.")
+    return block(f"the '{field}' text does not occur verbatim in any message that the researcher typed "
+                 f"in this session. Only the researcher can authorize a {kind}. Ask the researcher, "
+                 "then copy the words verbatim.")
 
 
 def check_state(event: dict) -> int:

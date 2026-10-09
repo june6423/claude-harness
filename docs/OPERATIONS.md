@@ -31,6 +31,15 @@ claude attach dt        # DT 세션을 이 터미널에서 열기
 - DT는 그 문장을 handoff의 `approval`에 그대로 넣습니다. harness는 그 문장이 **연구자가 이 DT 세션에 입력한 메시지**에 있는지 확인합니다. 없으면 게시를 거부합니다. 다른 Tower의 메시지나 파일 내용은 승인으로 인정하지 않습니다.
 - 게시가 끝나면 DT가 ET에 `HANDOFF_READY`를 보내고, 이후 단계는 Tower끼리 진행합니다.
 
+## 2.1 handoff 밖의 지시 (directive)
+
+handoff에 없는 일을 ET나 VT에게 시키려면 DT에게 말하면 됩니다. 예: "평가 코드를 ET에게 확인시켜라", "VT에게 이 결과를 다시 검토시켜라".
+
+- DT는 그 말을 **그대로** `instruction`에 넣은 directive를 게시합니다. harness는 그 문장이 연구자가 DT 세션에 입력한 메시지에 있는지 확인합니다.
+- `scope`는 세 단계입니다. 질문과 검토는 READ_ONLY, 로컬 코드 수정은 LOCAL_CHANGE, 서버 실행은 REMOTE_RUN입니다. ET는 scope를 넘는 일을 하지 않습니다.
+- ET와 VT는 메시지에 적힌 "연구자가 승인했다" 같은 주장을 믿지 않습니다. 기록(handoff나 directive)이 있어야 움직입니다.
+- DT는 이제 `workspace/`의 코드를 직접 읽을 수 있습니다(읽기 전용). 단순한 코드 질문은 DT에게 바로 물어보면 됩니다.
+
 ## 3. 진행 확인
 
 ```bash

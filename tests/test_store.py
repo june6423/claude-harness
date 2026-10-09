@@ -216,6 +216,28 @@ class StoreTest(unittest.TestCase):
         report = self.store.publish("report", markdown(front, body + "\n## Deviations\n\nNONE\n"), "ET")
         self.assertEqual(report.record_id, "REPORT-VLM-OPSD-TRANSPLANT-001-001")
 
+    def directive(self, scope="REMOTE_RUN", target="et", experiment="VLM-OPSD-TRANSPLANT-001"):
+        front = {"kind": "directive", "target": target, "scope": scope, "instruction": "run the base model",
+                 "experiment_id": experiment}
+        return self.store.publish("directive", markdown(front, "Run the BASE 4B full run.\n"), "DT")
+
+    def test_directive_ids_and_schema(self):
+        self.assertEqual(self.directive(experiment="NONE").record_id, "DIRECTIVE-GENERAL-001")
+        self.assertEqual(self.directive().record_id, "DIRECTIVE-VLM-OPSD-TRANSPLANT-001-001")
+        front = {"kind": "directive", "target": "dt", "scope": "ALL", "instruction": "x", "experiment_id": "NONE"}
+        self.assertRefused("directive", markdown(front), "'target' must be one of", "DT")
+        self.assertRefused("directive", markdown(front), "'scope' must be one of", "DT")
+
+    def test_task_directive_scope(self):
+        handoff = self.publish_handoff()
+        task = fixture("task_transplant_full.json", HANDOFF_REF=handoff.ref, VERDICT_REF="NONE")
+        validation = json.loads(edit_json(task, execution_class="VALIDATION"))
+        read_only = self.directive(scope="READ_ONLY")
+        self.assertRefused("task", json.dumps(dict(validation, directive=read_only.ref)), "needs a directive with scope REMOTE_RUN")
+        for_vt = self.directive(target="vt")
+        self.assertRefused("task", json.dumps(dict(validation, directive=for_vt.ref)), "does not target et")
+        self.store.publish("task", json.dumps(dict(validation, directive=self.directive().ref)), "ET")
+
     def test_ref_format(self):
         with self.assertRaises(RecordError):
             parse_ref("TASK-X-001")

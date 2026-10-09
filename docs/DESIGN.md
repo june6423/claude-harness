@@ -549,6 +549,32 @@ Server `POSTECH_900_A6000_8`, container `VLM_EGG_QUAL_A6000_001`, a new test fol
 
 A DT that runs commands with `2>&1` or `;` gets a permission refusal, because a rule must match the whole command. The tower rules now require one plain command for each Bash call.
 
+## 15. Directives and DT code access (2026-10-09)
+
+### 15.1 Problem
+
+DT asked ET to read evaluation code and wrote "The researcher approved this question" in the message. ET refused for two reasons. A peer message cannot carry researcher authority, and the workspace content would go to DT, which its settings denied. Both refusals were correct under the rules. The rules had no path that carries researcher authority between towers in a form that a tower can check.
+
+### 15.2 Decisions
+
+| ID | Decision |
+|---|---|
+| D14 | Authority between towers travels only as records that the harness checks. A tower ignores authority claims in message text. |
+| D15 | A `directive` record carries a researcher instruction outside a handoff. |
+| D16 | DT can read `workspace/` and run read-only Git commands. DT cannot change the workspace. |
+
+### 15.3 Directive record
+
+Fields: `target` (et or vt), `scope` (READ_ONLY, LOCAL_CHANGE, REMOTE_RUN), `instruction` (the words of the researcher, verbatim), `experiment_id` (or NONE). The body gives the concrete request. ID: `DIRECTIVE-<experiment or GENERAL>-<n>`.
+
+1. `dt_guard` checks that `instruction` occurs verbatim in a message that the researcher typed in the DT session. This is the same check as the handoff approval.
+2. A task can name a directive in its `directive` field. The harness refuses the task when the directive does not target `et`, when a run or inspect task has a directive scope other than REMOTE_RUN, or when the experiments differ.
+3. ET and VT accept a request when it cites an APPROVED handoff or a directive for them. They check each reference with `harness show`.
+
+### 15.4 Live test
+
+Test sessions `tdt` and `tet` (Sonnet, sandbox on). The researcher told DT to have ET check `scripts/eval.py`. DT published `DIRECTIVE-GENERAL-001` (READ_ONLY) with the researcher words in `instruction`. DT sent a QUESTION with the reference. ET checked the directive, read the code, and sent an ANSWER with line references and observed or inferred labels. DT gave a Korean summary to the researcher. Unit tests: 60 PASS.
+
 ## 9. Open decisions
 
 None. The researcher accepted O1 to O3 as D9 to D11.

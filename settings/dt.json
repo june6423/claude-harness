@@ -26,7 +26,16 @@
       "Bash(bin/harness publish handoff * --actor DT)",
       "Bash(bin/harness handoff-draft *)",
       "Bash(bin/harness status)",
-      "Bash(bin/harness status *)"
+      "Bash(bin/harness status *)",
+      "Bash(bin/harness publish directive * --actor DT)",
+      "Bash(git -C * log*)",
+      "Bash(git -C * show*)",
+      "Bash(git -C * diff*)",
+      "Bash(git -C * status*)",
+      "Bash(git -C * ls-tree*)",
+      "Bash(git -C * rev-parse*)",
+      "Bash(git -C * branch*)",
+      "Bash(git -C * grep*)"
     ],
     "deny": [
       "Edit(/{{HARNESS}}/**)",
@@ -34,9 +43,9 @@
       "Bash(bin/harness tower *)",
       "Bash(bin/harness init *)",
       "Bash(bin/harness --data-root *)",
-      "Read(/{{DATA_ROOT}}/workspace/**)",
       "Read(/{{DATA_ROOT}}/runtime/logs/**)",
-      "Bash(bin/harness git *)"
+      "Bash(bin/harness git *)",
+      "Edit(/{{DATA_ROOT}}/workspace/**)"
     ]
   },
   "sandbox": {
@@ -55,7 +64,6 @@
         "{{HARNESS}}"
       ],
       "denyRead": [
-        "{{DATA_ROOT}}/workspace",
         "{{DATA_ROOT}}/runtime/logs"
       ]
     },

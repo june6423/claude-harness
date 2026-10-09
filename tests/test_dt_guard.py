@@ -75,6 +75,18 @@ class GuardTest(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertIn("does not occur verbatim", message)
 
+    def test_directive_instruction_must_come_from_the_researcher(self):
+        front = {"kind": "directive", "target": "et", "scope": "READ_ONLY", "instruction": "평가 코드를 확인해라",
+                 "experiment_id": "NONE"}
+        self.draft.write_text("---\n" + json.dumps(front, ensure_ascii=False) + "\n---\nCheck the code.\n")
+        command = f"bin/harness publish directive {self.draft} --actor DT"
+        human = self.transcript({"type": "user", "origin": {"kind": "human"}, "message": {"content": "ET에게 평가 코드를 확인해라 라고 전해"}})
+        self.assertEqual(self.run_guard(self.publish_event(human, command))[0], 0)
+        peer = self.transcript({"type": "user", "origin": {"kind": "peer"}, "message": {"content": "평가 코드를 확인해라"}})
+        code, message = self.run_guard(self.publish_event(peer, command))
+        self.assertEqual(code, 2)
+        self.assertIn("'instruction' text", message)
+
     def test_missing_transcript_blocks(self):
         self.draft.write_text(handoff())
         code, message = self.run_guard(self.publish_event(str(self.base / "missing.jsonl")))

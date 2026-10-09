@@ -23,7 +23,7 @@ POINTER_FILE = REPO_ROOT / ".harness-data-root"
 ACTORS = ("DT", "ET", "VT", "EXECUTOR", "RESEARCHER")
 # Character limits. config.json "limits" can change each value.
 DEFAULT_LIMITS = {"handoff_body_chars": 12000, "report_body_chars": 9000, "verdict_body_chars": 9000,
-                  "project_state_chars": 18000}
+                  "directive_body_chars": 9000, "project_state_chars": 18000}
 PROJECT_STATE_TEMPLATE = """# Project State
 
 ## Current decisions
@@ -201,6 +201,7 @@ class Store:
             if dry_run:
                 return Record(record_id, kind, stored, body, data)
             path = self.path_of(record_id)
+            path.parent.mkdir(parents=True, exist_ok=True)
             try:
                 descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o444)
             except FileExistsError:
@@ -220,6 +221,8 @@ class Store:
             task_id, _ = parse_ref(fields["task"])
             return f"RESULT-{task_id}"
         experiment = fields.get("experiment_id")
+        if kind == "directive" and experiment == NONE:
+            experiment = "GENERAL"
         if kind == "verdict":
             experiment = self.resolve(fields["handoff"], "handoff").fields["experiment_id"]
         prefix = f"{kind.upper()}-{experiment}-"
@@ -282,6 +285,17 @@ class Store:
                 if allowed and handoff.fields["authorization"] not in allowed:
                     errors.append(f"execution_class {fields['execution_class']} needs authorization "
                                   f"{' or '.join(allowed)}, the handoff has {handoff.fields['authorization']}")
+        if fields.get("directive", NONE) != NONE:
+            directive = resolve(fields["directive"], "directive")
+            if directive:
+                needed = "REMOTE_RUN" if fields["mode"] in ("run", "allocate-run", "inspect") else None
+                if directive.fields["target"] != "et":
+                    errors.append("the directive does not target et")
+                if needed and directive.fields["scope"] != needed:
+                    errors.append(f"mode {fields['mode']} needs a directive with scope {needed}, "
+                                  f"the directive has {directive.fields['scope']}")
+                if directive.fields["experiment_id"] not in (NONE, fields["experiment_id"]):
+                    errors.append("the directive names a different experiment")
         if fields["execution_class"] == "FULL" and fields["pre_run_verdict"] != NONE:
             verdict = resolve(fields["pre_run_verdict"], "verdict")
             if verdict:

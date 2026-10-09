@@ -132,6 +132,10 @@ class TowerCommandTest(unittest.TestCase):
                 settings = json.loads(render_settings(name, root).read_text())
                 self.assertTrue(settings["sandbox"]["enabled"])
                 self.assertTrue(settings["sandbox"]["failIfUnavailable"])
+            dt = json.loads(render_settings("dt", root).read_text())
+            self.assertNotIn(f"Read(/{root}/workspace/**)", dt["permissions"]["deny"])  # DT reads code (option B)
+            self.assertIn(f"Edit(/{root}/workspace/**)", dt["permissions"]["deny"])
+            self.assertNotIn(f"{root}/workspace", dt["sandbox"]["filesystem"]["denyRead"])
 
 
 if __name__ == "__main__":

@@ -12,13 +12,13 @@ import re
 from typing import Any
 
 NONE = "NONE"
-MARKDOWN_KINDS = ("handoff", "report", "verdict")
+MARKDOWN_KINDS = ("handoff", "report", "verdict", "directive")
 JSON_KINDS = ("task", "result")
 KINDS = MARKDOWN_KINDS + JSON_KINDS
 ID_PREFIX = {kind: kind.upper() for kind in KINDS}
 
 EXPERIMENT_RE = re.compile(r"^[A-Z0-9](?:[A-Z0-9-]*[A-Z0-9])?$")
-RECORD_ID_RE = re.compile(r"^(HANDOFF|REPORT|VERDICT|TASK|RESULT)-[A-Z0-9][A-Z0-9-]*$")
+RECORD_ID_RE = re.compile(r"^(HANDOFF|REPORT|VERDICT|DIRECTIVE|TASK|RESULT)-[A-Z0-9][A-Z0-9-]*$")
 REF_RE = re.compile(r"^(?P<id>[A-Z]+-[A-Z0-9-]+)@sha256:(?P<sha>[0-9a-f]{64})$")
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 GATE_ID_RE = re.compile(r"^G[0-9]+$")
@@ -35,6 +35,8 @@ EXECUTION_CLASSES = (NONE, "VALIDATION", "FULL")
 GPU_POLICIES = ("FIXED", "BEST_EFFORT_JIT")
 OUTCOMES = ("PASS", "FAIL", "REJECTED", "INTERRUPTED")
 REPORT_SECTIONS = ("Changes", "Evidence", "Proposals", "Deviations")
+DIRECTIVE_TARGETS = ("et", "vt")
+DIRECTIVE_SCOPES = ("READ_ONLY", "LOCAL_CHANGE", "REMOTE_RUN")
 MAX_TIMEOUT_SECONDS = 604800
 
 
@@ -247,7 +249,7 @@ def validate_task(fields: dict[str, Any], body: str = "") -> list[str]:
     c.keys(("kind", "experiment_id", "handoff", "source", "user_request", "mode", "execution_class",
             "server", "repo", "branch", "commit", "runtime", "entrypoint", "instructions", "env",
             "output_root", "required_outputs", "gpu", "timeout_seconds", "pre_run_verdict", "lineage"),
-           ("id", "fetch_outputs"))
+           ("id", "fetch_outputs", "directive"))
     _common(c, "task")
     c.pattern("experiment_id", EXPERIMENT_RE, "an upper-case experiment ID")
     c.ref("handoff", allow_none=True)
@@ -262,6 +264,7 @@ def validate_task(fields: dict[str, Any], body: str = "") -> list[str]:
     c.text("instructions", allow_none=True)
     c.integer("timeout_seconds", 1, MAX_TIMEOUT_SECONDS)
     c.ref("pre_run_verdict", allow_none=True)
+    c.ref("directive", allow_none=True)
 
     mode = fields.get("mode")
     execution = mode in EXECUTION_MODES
@@ -509,7 +512,21 @@ def validate_verdict(fields: dict[str, Any], body: str) -> list[str]:
     return c.errors
 
 
+def validate_directive(fields: dict[str, Any], body: str) -> list[str]:
+    c = Checker(fields)
+    c.keys(("kind", "target", "scope", "instruction", "experiment_id"), ("id",))
+    _common(c, "directive")
+    c.choice("target", DIRECTIVE_TARGETS)
+    c.choice("scope", DIRECTIVE_SCOPES)
+    c.text("instruction")
+    c.pattern("experiment_id", EXPERIMENT_RE, "an upper-case experiment ID", allow_none=True)
+    if not body.strip():
+        c.error("directive body must not be empty. Write the concrete request")
+    return c.errors
+
+
 VALIDATORS = {
+    "directive": validate_directive,
     "handoff": validate_handoff,
     "task": validate_task,
     "result": validate_result,

@@ -124,3 +124,25 @@ refs: <reference>, ... | NONE
 34. When a verdict is not VALID, report the defects to the researcher in Korean. Do not choose a new experiment without the researcher.
 35. Run one command in each Bash call. Do not add `;`, `&&`, pipes, or redirections such as `2>&1`. The permission rules refuse a `bin/harness` command with these additions. The command output already shows errors.
 36. The harness refuses a FULL task until VT gives VALID for each PRE_RUN gate. A FULL_RUN handoff therefore needs no `full_run_condition`. Use `ALL_PRE_RUN_GATES_VALID` only with a VALIDATION_RUN handoff, when the researcher approves a later move to FULL_RUN.
+
+## Code access and directives
+
+37. You can read `<data-root>/workspace/`. You can run read-only Git commands with `git -C <path>`: log, show, diff, status, ls-tree, rev-parse, branch, and grep. Do not change files in the workspace.
+38. Code that you read is implementation detail. Base research conclusions on results and VT verdicts, not on your code reading alone.
+39. When the researcher asks for work by ET or VT outside an APPROVED handoff, publish a directive. Copy the words of the researcher verbatim into `instruction`. Write the concrete request in the body.
+40. Use the smallest scope: READ_ONLY for questions and reviews, LOCAL_CHANGE for local code changes, REMOTE_RUN for server runs.
+41. A directive draft has this front matter:
+
+```text
+---
+{
+  "kind": "directive", "target": "et", "scope": "READ_ONLY",
+  "instruction": "<the words of the researcher, verbatim>",
+  "experiment_id": "<EXPERIMENT-ID> | NONE"
+}
+---
+```
+
+42. Publish it with `bin/harness publish directive <draft> --dry-run --actor DT`, then without `--dry-run`. The harness refuses the directive when `instruction` does not occur verbatim in a message that the researcher typed in this session.
+43. Send the directive reference in the `refs` of the message. Do not claim researcher approval in message text. ET and VT ignore such claims.
+

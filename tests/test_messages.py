@@ -119,6 +119,14 @@ class TowerCommandTest(unittest.TestCase):
             with self.assertRaises(RecordError):
                 start_command("xt", root)
 
+    def test_resume_adds_session_and_snapshot_off(self):
+        from harness import tower
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            with mock.patch.object(tower, "resolve_session", return_value="8cdef581-full-id"):
+                command = tower.start_command("dt", root, resume="8cdef581")
+            self.assertEqual(command[-4:], ["--resume", "8cdef581-full-id", "--system-prompt-snapshot", "off"])
+
     def test_every_tower_template_renders(self):
         from harness.tower import TOWERS, render_settings
         with tempfile.TemporaryDirectory() as tmp:

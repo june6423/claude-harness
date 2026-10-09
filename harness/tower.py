@@ -48,8 +48,20 @@ def render_settings(tower: str, data_root: Path, repo: Path = REPO_ROOT) -> Path
     return target
 
 
+def transcript_dir(repo: Path = REPO_ROOT) -> Path:
+    return Path.home() / ".claude" / "projects" / str(repo).replace("/", "-").replace(".", "-")
+
+
+def resolve_session(prefix: str, repo: Path = REPO_ROOT) -> str:
+    """The full session ID of a tower transcript whose ID starts with this prefix."""
+    matches = sorted(p.stem for p in transcript_dir(repo).glob(f"{prefix}*.jsonl"))
+    if len(matches) != 1:
+        raise RecordError(f"session prefix {prefix!r} matches {len(matches)} transcripts in {transcript_dir(repo)}")
+    return matches[0]
+
+
 def start_command(tower: str, data_root: Path, model: str | None = None, name: str | None = None,
-                  repo: Path = REPO_ROOT) -> list[str]:
+                  repo: Path = REPO_ROOT, resume: str | None = None) -> list[str]:
     if tower not in TOWERS:
         raise RecordError(f"tower must be one of {', '.join(TOWERS)}")
     for path in (repo / ".claude" / "agents" / f"{tower}.md", repo / "towers" / f"{tower}.md",
@@ -62,6 +74,9 @@ def start_command(tower: str, data_root: Path, model: str | None = None, name: s
                "--settings", str(settings)]
     if model:
         command += ["--model", model]
+    if resume:
+        # Continue the old conversation. Snapshot off: each request uses the current tower rules.
+        command += ["--resume", resolve_session(resume, repo), "--system-prompt-snapshot", "off"]
     return command
 
 
@@ -96,8 +111,8 @@ def stop(name: str) -> list[str]:
 
 
 def start(tower: str, data_root: Path, model: str | None = None, prompt: str | None = None,
-          wait_seconds: float = 15.0, replace: bool = False) -> dict:
-    command = start_command(tower, data_root, model)
+          wait_seconds: float = 15.0, replace: bool = False, resume: str | None = None) -> dict:
+    command = start_command(tower, data_root, model, resume=resume)
     if replace:
         stop(tower)
     else:

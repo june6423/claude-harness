@@ -188,7 +188,7 @@ def cmd_git(args) -> int:
 def cmd_tower(args) -> int:
     if args.action in ("start", "restart"):
         session = tower.start(args.name, find_data_root(args.data_root), args.model, args.prompt,
-                              replace=args.action == "restart")
+                              replace=args.action == "restart", resume=args.resume)
         print(json.dumps(session, ensure_ascii=False))
     elif args.action == "stop":
         removed = tower.stop(args.name)
@@ -277,6 +277,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("name", nargs="?", choices=tower.TOWERS)
     p.add_argument("--model", help="model for the session, such as sonnet or opus")
     p.add_argument("--prompt", help="first prompt for the session")
+    p.add_argument("--resume", help="continue an earlier tower conversation (session ID or its prefix)")
     p.set_defaults(func=cmd_tower)
     return parser
 

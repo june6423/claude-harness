@@ -35,7 +35,14 @@
       "Bash(git -C * ls-tree*)",
       "Bash(git -C * rev-parse*)",
       "Bash(git -C * branch*)",
-      "Bash(git -C * grep*)"
+      "Bash(git -C * grep*)",
+      "Edit(/{{DATA_ROOT}}/worklog/dt.md)",
+      "Edit(/{{DATA_ROOT}}/worklog/dt-summary.md)",
+      "Bash(bin/harness handover dt *)",
+      "Bash(bin/harness grants)",
+      "Bash(bin/harness grants *)",
+      "Bash(bin/harness publish grant * --actor DT)",
+      "Bash(bin/harness publish revoke * --actor DT)"
     ],
     "deny": [
       "Edit(/{{HARNESS}}/**)",
@@ -110,6 +117,16 @@
           {
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/message_ledger.py\" --tower dt"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/context_guard.py\" --tower dt"
           }
         ]
       }

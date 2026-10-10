@@ -43,6 +43,25 @@ handoff에 없는 일을 ET나 VT에게 시키려면 DT에게 말하면 됩니�
 - ET와 VT는 메시지에 적힌 "연구자가 승인했다" 같은 주장을 믿지 않습니다. 기록(handoff나 directive)이 있어야 움직입니다.
 - DT는 이제 `workspace/`의 코드를 직접 읽을 수 있습니다(읽기 전용). 단순한 코드 질문은 DT에게 바로 물어보면 됩니다.
 
+## 2.2 반복되는 권한 질문 줄이기 (grant)
+
+"실험 브랜치 push는 앞으로 묻지 마"처럼 실행 권한을 계속 유효하게 승인하려면 DT에게 말합니다.
+
+- DT는 그 말을 정해진 범주로 나눠 보여 주고, 연구자의 확인을 받은 뒤 grant를 게시합니다. 범주 목록은 `bin/harness grants --categories`로 볼 수 있습니다.
+- grant에는 범위와 만료가 있습니다. 예를 들어 "현재 handoff revision 동안"이나 "특정 날짜까지"입니다. 현재 유효한 grant는 `bin/harness grants`로 확인합니다.
+- 철회하려면 DT에게 말합니다. DT가 revoke를 게시합니다.
+- 연구 판단, handoff 승인, 예산 상한 변경은 grant로 대신할 수 없습니다.
+
+## 2.3 세션 교체 (맥락이 커질 때)
+
+Tower의 맥락이 300000 토큰(`limits.context_rotate_tokens`)을 넘으면 다음 순서로 진행됩니다.
+
+1. Tower가 인계 기록을 `worklog/<tower>.md`에 씁니다.
+2. executor daemon이 그 Tower를 새 세션으로 다시 시작합니다.
+3. 새 세션은 작업 로그를 읽고 일을 이어 갑니다.
+
+연구자가 `claude attach`로 그 Tower에 들어가 있었다면 연결이 끊기니, 다시 attach하면 됩니다.
+
 ## 3. 진행 확인
 
 ```bash

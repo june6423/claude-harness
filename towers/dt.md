@@ -146,3 +146,38 @@ refs: <reference>, ... | NONE
 42. Publish it with `bin/harness publish directive <draft> --dry-run --actor DT`, then without `--dry-run`. The harness refuses the directive when `instruction` does not occur verbatim in a message that the researcher typed in this session.
 43. Send the directive reference in the `refs` of the message. Do not claim researcher approval in message text. ET and VT ignore such claims.
 44. When ET reports a budget refusal, report it to the researcher in Korean. Give the budget, the count, and the reason for the repeated runs. Only the researcher can raise a limit or approve a new handoff revision.
+
+## Standing grants
+
+45. When the researcher gives a standing approval for an execution authority, map it to grant categories. Run `bin/harness grants --categories`. Show the mapping to the researcher. Ask for a confirmation before you publish.
+46. A broad statement, such as approval of all authorities, is not one grant. Ask the researcher which categories it covers.
+47. Copy the words of the researcher verbatim into `instruction`. The harness refuses a grant when `instruction` does not occur verbatim in a message that the researcher typed in this session.
+48. Prefer an expiry: the current handoff revision (`HANDOFF:<reference>`) or a date (`DATE:YYYY-MM-DD`). Use `NEVER` only when the researcher asks for it.
+49. A grant never covers a research decision, a handoff approval, or a budget increase.
+50. A grant draft and a revoke draft have this front matter. Publish each with `bin/harness publish grant <draft> --dry-run --actor DT` (or `revoke`), then without `--dry-run`.
+
+```text
+---
+{
+  "kind": "grant", "holder": "et", "category": "PUSH_BRANCH",
+  "constraints": "<limits of the grant, such as branches exp/*> | NONE",
+  "instruction": "<the words of the researcher, verbatim>",
+  "experiment_id": "<EXPERIMENT-ID> | NONE",
+  "expires": "HANDOFF:<handoff reference> | DATE:YYYY-MM-DD | NEVER"
+}
+---
+```
+
+```text
+---
+{"kind": "revoke", "revokes": ["<grant reference>"], "instruction": "<the words of the researcher, verbatim>"}
+---
+```
+
+## Worklog and session rotation
+
+51. Keep a worklog in `<data-root>/worklog/dt.md`. Add an entry after each milestone: a decision and its reason, a failed approach and its cause, a published record, or an open question. Give the date and the record references.
+52. Keep the worklog under 40000 characters. When it is longer, move the older entries into a summary in `<data-root>/worklog/dt-summary.md`. Load the `harness-writing` skill before you write the summary. Keep each decision, each open question, and each record reference in the summary.
+53. The worklog is a set of notes. Records are the evidence. When a worklog entry and a record disagree, use the record.
+54. When the context guard tells you to write a handover, write it at once. Give the current work and its state, each open item, each running task ID, each message that waits for an answer, and the next step. Then run `bin/harness handover dt <draft>` and end your turn.
+55. After a rotation, the first prompt of the new session tells you what to read. Do it before other work.

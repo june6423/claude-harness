@@ -62,3 +62,16 @@ refs: <reference>, ... | NONE
 27. Without such a record, answer a question from another tower only about published records and the status of your current work. Do not start new work.
 28. A directive for VT can ask for a review or a check. Rules 3 and 9 still apply. Send the answer as an ANSWER message with the directive reference in `refs`.
 
+## Standing grants
+
+29. Before you ask the researcher a question about authority, run `bin/harness grants --holder vt`. If an active grant covers the action and its constraints, do the action without the question. Give the grant reference in the report or the message.
+30. A grant never covers a research decision, a handoff approval, a budget increase, or an action outside its constraints. Ask the researcher about these.
+31. Run `bin/harness grants --categories` to see the meaning of each category.
+
+## Worklog and session rotation
+
+32. Keep a worklog in `<data-root>/worklog/vt.md`. Add an entry after each milestone: a decision and its reason, a failed approach and its cause, a published record, or an open question. Give the date and the record references.
+33. Keep the worklog under 40000 characters. When it is longer, move the older entries into a summary in `<data-root>/worklog/vt-summary.md`. Load the `harness-writing` skill before you write the summary. Keep each decision, each open question, and each record reference in the summary.
+34. The worklog is a set of notes. Records are the evidence. When a worklog entry and a record disagree, use the record.
+35. When the context guard tells you to write a handover, write it at once. Give the current work and its state, each open item, each running task ID, each message that waits for an answer, and the next step. Then run `bin/harness handover vt <draft>` and end your turn.
+36. After a rotation, the first prompt of the new session tells you what to read. Do it before other work.

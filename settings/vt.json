@@ -30,7 +30,12 @@
       "Bash(python3 *)",
       "Bash(bin/harness publish verdict * --actor VT)",
       "Bash(bin/harness status)",
-      "Bash(bin/harness status *)"
+      "Bash(bin/harness status *)",
+      "Edit(/{{DATA_ROOT}}/worklog/vt.md)",
+      "Edit(/{{DATA_ROOT}}/worklog/vt-summary.md)",
+      "Bash(bin/harness handover vt *)",
+      "Bash(bin/harness grants)",
+      "Bash(bin/harness grants *)"
     ],
     "deny": [
       "Edit(/{{HARNESS}}/**)",
@@ -84,6 +89,16 @@
           {
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/message_ledger.py\" --tower vt"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/context_guard.py\" --tower vt"
           }
         ]
       }

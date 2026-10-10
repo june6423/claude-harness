@@ -591,6 +591,27 @@ The researcher chose budgets and no central cycle. Cross-session messages alread
 3. `harness status` shows the use of each budget for the latest revision.
 4. The `faculty-opsd` data root uses run 30, FULL 3, recovery 8, because revision R6 already had 18 run tasks and a recovery chain of 6 when the budgets started.
 
+## 17. Standing grants (2026-10-10)
+
+The researcher expects repeated questions about execution authority. A `grant` record keeps such an answer so that a tower does not ask it again.
+
+1. Fields: `holder` (et or vt), `category` (fixed list, `harness grants --categories`), `constraints`, `instruction` (the words of the researcher, verbatim), `experiment_id` (or NONE), `expires` (`NEVER`, `DATE:YYYY-MM-DD`, or `HANDOFF:<reference>`).
+2. Categories: PUSH_BRANCH, LOCAL_IMPLEMENTATION, RUN_VALIDATION, RERUN_AFTER_MECHANICAL_FAILURE, START_FULL_AFTER_VALID, USE_SERVER_RESOURCES, CONTAINER_SETUP, ANSWER_TOWER_QUESTIONS.
+3. A `revoke` record withdraws grants. A grant is active when no revoke names it and it has not expired. A `HANDOFF:` grant ends when a newer revision of that experiment exists.
+4. DT publishes grants and revokes. `dt_guard` checks `instruction` against the researcher messages, as for a directive. The researcher can publish them with `--actor RESEARCHER`.
+5. A grant never covers a research decision, a handoff approval, or a budget increase. Free text such as "the user already approved X" in a memory file is not used, because any session can write it and it has no scope or expiry.
+
+## 18. Worklog and session rotation (2026-10-10)
+
+A long tower session loses quality and costs more for each turn. A tower gets a new session when its context is large.
+
+1. `hooks/context_guard.py` runs at each Stop. It reads the context size of the latest request from the transcript (`input_tokens` + cache creation + cache read). At `limits.context_rotate_tokens` (default 300000) it blocks the stop once and tells the tower to write a handover.
+2. `harness handover <tower> <draft>` adds the handover to `<data-root>/worklog/<tower>.md` and writes `runtime/rotate/<tower>.json`.
+3. The executor daemon sees the request. When the tower is idle, it restarts the tower with the same model and a first prompt that tells it to read its worklog summary, the last handover, the status, and recent messages.
+4. Each tower keeps a worklog of milestones. The rules state a limit of 40000 characters. Above the limit the tower writes a summary in `<tower>-summary.md` with the `harness-writing` skill. The harness does not enforce or watch the worklog size (researcher decision).
+5. Live test: with a 20000-token limit, the hook stopped an ET session, ET wrote the handover, and the request appeared. The restart step has unit tests only, because a live restart would replace the running towers of the same name.
+6. When the faculty-opsd towers started this feature, DT had about 261000 and ET about 267000 context tokens.
+
 ## 9. Open decisions
 
 None. The researcher accepted O1 to O3 as D9 to D11.

@@ -126,3 +126,17 @@ refs: <reference>, ... | NONE
 57. Send the answer to the sender of the directive as an ANSWER message with the directive reference in `refs`.
 58. The harness refuses a task over a budget: run tasks or FULL tasks for each handoff revision, or the recovery attempt count. When it refuses, stop. Send a STATUS message to DT with the refusal text. Do not split or relabel work to get around a budget.
 59. The message hook refuses a message when you send too many messages to one tower in 10 minutes. Then stop and report to the researcher in your session.
+
+## Standing grants
+
+60. Before you ask the researcher a question about authority, run `bin/harness grants --holder et`. If an active grant covers the action and its constraints, do the action without the question. Give the grant reference in the report or the message.
+61. A grant never covers a research decision, a handoff approval, a budget increase, or an action outside its constraints. Ask the researcher about these.
+62. Run `bin/harness grants --categories` to see the meaning of each category.
+
+## Worklog and session rotation
+
+63. Keep a worklog in `<data-root>/worklog/et.md`. Add an entry after each milestone: a decision and its reason, a failed approach and its cause, a published record, or an open question. Give the date and the record references.
+64. Keep the worklog under 40000 characters. When it is longer, move the older entries into a summary in `<data-root>/worklog/et-summary.md`. Load the `harness-writing` skill before you write the summary. Keep each decision, each open question, and each record reference in the summary.
+65. The worklog is a set of notes. Records are the evidence. When a worklog entry and a record disagree, use the record.
+66. When the context guard tells you to write a handover, write it at once. Give the current work and its state, each open item, each running task ID, each message that waits for an answer, and the next step. Then run `bin/harness handover et <draft>` and end your turn.
+67. After a rotation, the first prompt of the new session tells you what to read. Do it before other work.

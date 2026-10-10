@@ -24,7 +24,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-PUBLISH_RE = re.compile(r"(?:^|[\s;&|])(?:\S*/)?bin/harness\s+publish\s+(handoff|directive)\s")
+PUBLISH_RE = re.compile(r"(?:^|[\s;&|])(?:\S*/)?bin/harness\s+publish\s+(handoff|directive|grant|revoke)\s")
 
 
 def block(message: str) -> int:
@@ -72,7 +72,7 @@ def draft_path(command: str) -> str | None:
         return None
     for index, word in enumerate(words[:-2]):
         if word.endswith("bin/harness") and words[index + 1] == "publish" \
-                and words[index + 2] in ("handoff", "directive"):
+                and words[index + 2] in ("handoff", "directive", "grant", "revoke"):
             return words[index + 3] if index + 3 < len(words) else None
     return None
 

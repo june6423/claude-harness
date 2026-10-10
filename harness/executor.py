@@ -131,10 +131,37 @@ class Executor:
                 slots.add(tuple(data["slot"]))
         return slots
 
+    def rotate_towers(self) -> list[str]:
+        """Start a new session for each tower that wrote a handover, once the tower is idle."""
+        if not (self.store.config().get("towers") or {}).get("auto_rotate", True):
+            return []
+        from . import tower as towers
+        rotated = []
+        for request in sorted((self.store.root / "runtime" / "rotate").glob("*.json")):
+            name = request.stem
+            try:
+                sessions = towers.named(name)
+                live = [s for s in sessions if s.get("state") not in ("stopped", "failed")]
+                if any(s.get("status") == "busy" for s in live):
+                    continue
+                model = towers.last_model(live[0]["sessionId"]) if live else None
+                new = towers.start(name, self.store.root, model, towers.rotation_prompt(name, self.store.root),
+                                   replace=True)
+                request.unlink()
+                journal.append(self.store.journal_path, {
+                    "actor": "EXECUTOR", "event": "TOWER_ROTATED", "tower": name,
+                    "old_sessions": [s.get("sessionId") for s in sessions], "new_session": new.get("sessionId")})
+                rotated.append(name)
+            except Exception as error:  # keep the request; the next step tries again
+                print(f"{utc()} tower rotation for {name} failed: {error}", flush=True)
+        return rotated
+
     def step(self) -> list[str]:
         """Recover dead workers, then claim and start new tasks. Return started task IDs."""
         started = []
         reap_children()
+        for name in self.rotate_towers():
+            print(f"{utc()} started a new {name} session after a handover", flush=True)
         self.paths.claims.mkdir(parents=True, exist_ok=True)
         for claim in sorted(self.paths.claims.glob("*.json")):
             data = read_json(claim)

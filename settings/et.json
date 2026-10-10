@@ -32,7 +32,12 @@
       "Bash(bin/harness wait *)",
       "Bash(bin/harness status)",
       "Bash(bin/harness status *)",
-      "Bash(bin/harness git *)"
+      "Bash(bin/harness git *)",
+      "Edit(/{{DATA_ROOT}}/worklog/et.md)",
+      "Edit(/{{DATA_ROOT}}/worklog/et-summary.md)",
+      "Bash(bin/harness handover et *)",
+      "Bash(bin/harness grants)",
+      "Bash(bin/harness grants *)"
     ],
     "deny": [
       "Edit(/{{HARNESS}}/**)",
@@ -53,8 +58,8 @@
       "Bash(git * config *)",
       "Bash(git * push http*)",
       "Bash(git * push git@*)",
-      "Bash(git * push ssh:*)",
-      "Bash(git * push file:*)",
+      "Bash(git * push ssh*)",
+      "Bash(git * push file*)",
       "Bash(git * push /*)",
       "Bash(git * push --repo*)",
       "Bash(git * -c *)"
@@ -104,6 +109,16 @@
           {
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/message_ledger.py\" --tower et"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/context_guard.py\" --tower et"
           }
         ]
       }

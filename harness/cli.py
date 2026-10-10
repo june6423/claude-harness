@@ -190,6 +190,45 @@ def cmd_git(args) -> int:
     return subprocess.run(command, env={**os.environ, "GIT_TERMINAL_PROMPT": "0"}).returncode
 
 
+def cmd_handover(args) -> int:
+    """Append a handover to the worklog of a tower and ask the executor daemon for a new session."""
+    from datetime import datetime, timezone
+    root = find_data_root(args.data_root)
+    text = Path(args.file).read_text(encoding="utf-8").strip()
+    if not text:
+        raise RecordError("the handover draft is empty")
+    stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    worklog = root / "worklog" / f"{args.tower}.md"
+    worklog.parent.mkdir(parents=True, exist_ok=True)
+    with worklog.open("a", encoding="utf-8") as handle:
+        handle.write(f"\n## Handover {stamp}\n\n{text}\n")
+    request = root / "runtime" / "rotate" / f"{args.tower}.json"
+    request.parent.mkdir(parents=True, exist_ok=True)
+    request.write_text(json.dumps({"tower": args.tower, "requested_at": stamp}) + "\n", encoding="utf-8")
+    journal.append(Store(root).journal_path, {"actor": args.tower.upper(), "event": "HANDOVER",
+                                               "worklog": str(worklog.relative_to(root))})
+    print(f"handover written to {worklog}. End your turn. The executor daemon starts a new session.")
+    return 0
+
+
+def cmd_grants(args) -> int:
+    from .records import GRANT_CATEGORIES
+    if args.categories:
+        for name, text in GRANT_CATEGORIES.items():
+            print(f"{name}: {text}")
+        return 0
+    store = Store(find_data_root(args.data_root))
+    grants = (list(store.records("grant")) if args.all
+              else store.active_grants(args.holder, args.experiment))
+    for grant in grants:
+        f = grant.fields
+        print(f"{grant.ref} {f['holder']} {f['category']} experiment={f['experiment_id']} "
+              f"expires={f['expires'][:60]} constraints={f['constraints']}")
+    if not grants:
+        print("no active grants")
+    return 0
+
+
 def cmd_tower(args) -> int:
     if args.action in ("start", "restart"):
         session = tower.start(args.name, find_data_root(args.data_root), args.model, args.prompt,
@@ -276,6 +315,18 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("verb", choices=GIT_VERBS)
     p.add_argument("rest", nargs=argparse.REMAINDER, help="arguments after 'origin', such as a branch")
     p.set_defaults(func=cmd_git)
+
+    p = sub.add_parser("handover", help="write a session handover and request a new tower session")
+    p.add_argument("tower", choices=tower.TOWERS)
+    p.add_argument("file")
+    p.set_defaults(func=cmd_handover)
+
+    p = sub.add_parser("grants", help="list active standing grants")
+    p.add_argument("--holder", choices=("et", "vt"))
+    p.add_argument("--experiment")
+    p.add_argument("--all", action="store_true", help="also list revoked and expired grants")
+    p.add_argument("--categories", action="store_true", help="list the grant categories")
+    p.set_defaults(func=cmd_grants)
 
     p = sub.add_parser("tower", help="start or list tower sessions")
     p.add_argument("action", choices=("start", "restart", "stop", "status", "command"))

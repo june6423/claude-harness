@@ -12,13 +12,13 @@ import re
 from typing import Any
 
 NONE = "NONE"
-MARKDOWN_KINDS = ("handoff", "report", "verdict", "directive")
+MARKDOWN_KINDS = ("handoff", "report", "verdict", "directive", "grant", "revoke")
 JSON_KINDS = ("task", "result")
 KINDS = MARKDOWN_KINDS + JSON_KINDS
 ID_PREFIX = {kind: kind.upper() for kind in KINDS}
 
 EXPERIMENT_RE = re.compile(r"^[A-Z0-9](?:[A-Z0-9-]*[A-Z0-9])?$")
-RECORD_ID_RE = re.compile(r"^(HANDOFF|REPORT|VERDICT|DIRECTIVE|TASK|RESULT)-[A-Z0-9][A-Z0-9-]*$")
+RECORD_ID_RE = re.compile(r"^(HANDOFF|REPORT|VERDICT|DIRECTIVE|GRANT|REVOKE|TASK|RESULT)-[A-Z0-9][A-Z0-9-]*$")
 REF_RE = re.compile(r"^(?P<id>[A-Z]+-[A-Z0-9-]+)@sha256:(?P<sha>[0-9a-f]{64})$")
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 GATE_ID_RE = re.compile(r"^G[0-9]+$")
@@ -37,6 +37,21 @@ OUTCOMES = ("PASS", "FAIL", "REJECTED", "INTERRUPTED")
 REPORT_SECTIONS = ("Changes", "Evidence", "Proposals", "Deviations")
 DIRECTIVE_TARGETS = ("et", "vt")
 DIRECTIVE_SCOPES = ("READ_ONLY", "LOCAL_CHANGE", "REMOTE_RUN")
+GRANT_HOLDERS = ("et", "vt")
+# Standing authority that a tower can use without asking the researcher again.
+# A grant never covers a research decision, a handoff approval, or a budget increase.
+GRANT_CATEGORIES = {
+    "PUSH_BRANCH": "Push branches that match the constraint to origin with bin/harness git.",
+    "LOCAL_IMPLEMENTATION": "Change, test, and commit local code inside the scope of an APPROVED handoff.",
+    "RUN_VALIDATION": "Publish VALIDATION run tasks under an APPROVED handoff.",
+    "RERUN_AFTER_MECHANICAL_FAILURE": "Publish a recovery task after a mechanical failure, such as out of memory, "
+                                      "a wrong path, or a missing file, inside the budgets.",
+    "START_FULL_AFTER_VALID": "Publish the FULL task after VT gives a VALID PRE_RUN verdict under a FULL_RUN handoff.",
+    "USE_SERVER_RESOURCES": "Use the servers, GPUs, and containers that the constraint names.",
+    "CONTAINER_SETUP": "Make temporary server-only changes in a registered container, such as a package install.",
+    "ANSWER_TOWER_QUESTIONS": "Answer read-only questions from other towers without a directive.",
+}
+GRANT_EXPIRES_RE = re.compile(r"^(NEVER|DATE:\d{4}-\d{2}-\d{2}|HANDOFF:[A-Z]+-[A-Z0-9-]+@sha256:[0-9a-f]{64})$")
 MAX_TIMEOUT_SECONDS = 604800
 
 
@@ -525,7 +540,31 @@ def validate_directive(fields: dict[str, Any], body: str) -> list[str]:
     return c.errors
 
 
+def validate_grant(fields: dict[str, Any], body: str) -> list[str]:
+    c = Checker(fields)
+    c.keys(("kind", "holder", "category", "constraints", "instruction", "experiment_id", "expires"), ("id",))
+    _common(c, "grant")
+    c.choice("holder", GRANT_HOLDERS)
+    c.choice("category", tuple(GRANT_CATEGORIES))
+    c.text("constraints", allow_none=True)
+    c.text("instruction")
+    c.pattern("experiment_id", EXPERIMENT_RE, "an upper-case experiment ID", allow_none=True)
+    c.pattern("expires", GRANT_EXPIRES_RE, "NEVER, DATE:YYYY-MM-DD, or HANDOFF:<handoff reference>")
+    return c.errors
+
+
+def validate_revoke(fields: dict[str, Any], body: str) -> list[str]:
+    c = Checker(fields)
+    c.keys(("kind", "revokes", "instruction"), ("id",))
+    _common(c, "revoke")
+    c.string_list("revokes", REF_RE, "a grant reference", non_empty=True)
+    c.text("instruction")
+    return c.errors
+
+
 VALIDATORS = {
+    "grant": validate_grant,
+    "revoke": validate_revoke,
     "directive": validate_directive,
     "handoff": validate_handoff,
     "task": validate_task,

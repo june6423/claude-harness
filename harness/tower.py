@@ -91,6 +91,31 @@ def start_command(tower: str, data_root: Path, model: str | None = None, name: s
     return command
 
 
+def last_model(session_id: str, repo: Path = REPO_ROOT) -> str | None:
+    """The model of the latest assistant message in a tower transcript."""
+    path = transcript_dir(repo) / f"{session_id}.jsonl"
+    model = None
+    if path.exists():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if entry.get("type") == "assistant":
+                model = (entry.get("message") or {}).get("model") or model
+    return model
+
+
+def rotation_prompt(tower: str, data_root: Path) -> str:
+    worklog = data_root / "worklog"
+    return (f"This is a new {tower.upper()} session after a context rotation. Your earlier session wrote a handover.\n"
+            f"1. Read {worklog}/{tower}-summary.md if it exists.\n"
+            f"2. Read the last Handover section in {worklog}/{tower}.md.\n"
+            "3. Run bin/harness status and bin/harness messages --last 20.\n"
+            "4. Continue the open work. Start again each background wait for a task that has no result.\n"
+            "5. Tell the researcher in Korean that a new session started and what you continue.")
+
+
 def sessions(include_finished: bool = False) -> list[dict]:
     command = ["claude", "agents", "--json"] + (["--all"] if include_finished else [])
     output = subprocess.run(command, capture_output=True, text=True, check=True).stdout

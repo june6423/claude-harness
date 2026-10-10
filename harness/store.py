@@ -28,7 +28,9 @@ DEFAULT_LIMITS = {"handoff_body_chars": 12000, "report_body_chars": 9000, "verdi
                   # so the counts start again only after the researcher acts.
                   "run_tasks_per_handoff": 20, "full_tasks_per_handoff": 3, "recovery_attempts": 5,
                   # Cross-session messages from one tower to one peer in 10 minutes.
-                  "messages_per_peer_per_10_minutes": 10}
+                  "messages_per_peer_per_10_minutes": 10,
+                  # A tower writes a handover and gets a new session at this context size.
+                  "context_rotate_tokens": 300000}
 PROJECT_STATE_TEMPLATE = """# Project State
 
 ## Current decisions
@@ -77,6 +79,7 @@ def init_data_root(path: Path, write_pointer: bool = True) -> Path:
     for kind in KINDS:
         (path / "records" / kind).mkdir(parents=True, exist_ok=True)
     (path / "artifacts").mkdir(exist_ok=True)
+    (path / "worklog").mkdir(exist_ok=True)
     (path / "state").mkdir(exist_ok=True)
     (path / "runtime").mkdir(exist_ok=True)
     (path / "workspace").mkdir(exist_ok=True)
@@ -201,6 +204,30 @@ class Store:
                                                 record.fields.get("lineage", {}).get("attempt", 0))
         return usage
 
+    def active_grants(self, holder: str | None = None, experiment: str | None = None,
+                      today: str | None = None) -> list[Record]:
+        """Grants that no revoke names and that have not expired."""
+        from datetime import date
+        today = today or date.today().isoformat()
+        revoked = {ref for r in self.records("revoke") for ref in r.fields["revokes"]}
+        active = []
+        for grant in self.records("grant"):
+            f = grant.fields
+            if grant.ref in revoked or (holder and f["holder"] != holder):
+                continue
+            if experiment and f["experiment_id"] not in (NONE, experiment):
+                continue
+            expires = f["expires"]
+            if expires.startswith("DATE:") and today > expires[5:]:
+                continue
+            if expires.startswith("HANDOFF:"):
+                handoff = self.load(parse_ref(expires[8:])[0])
+                latest = self.latest_handoff(handoff.fields["experiment_id"])
+                if latest is None or latest.ref != expires[8:]:
+                    continue
+            active.append(grant)
+        return active
+
     def check_budgets(self, fields: dict[str, Any]) -> None:
         """Refuse a new task over a budget. Only publish checks budgets; the executor does not."""
         if fields.get("handoff", NONE) == NONE:
@@ -263,7 +290,9 @@ class Store:
             task_id, _ = parse_ref(fields["task"])
             return f"RESULT-{task_id}"
         experiment = fields.get("experiment_id")
-        if kind == "directive" and experiment == NONE:
+        if kind in ("directive", "grant") and experiment == NONE:
+            experiment = "GENERAL"
+        if kind == "revoke":
             experiment = "GENERAL"
         if kind == "verdict":
             experiment = self.resolve(fields["handoff"], "handoff").fields["experiment_id"]
@@ -305,6 +334,13 @@ class Store:
                 resolve(ref, "result")
         elif kind == "verdict":
             extra["overall"] = self._check_verdict(fields, resolve, errors)
+        elif kind == "grant" and fields["expires"].startswith("HANDOFF:"):
+            handoff = resolve(fields["expires"][len("HANDOFF:"):], "handoff")
+            if handoff and fields["experiment_id"] not in (NONE, handoff.fields["experiment_id"]):
+                errors.append("the grant and its expiry handoff name different experiments")
+        elif kind == "revoke":
+            for ref in fields["revokes"]:
+                resolve(ref, "grant")
         if errors:
             raise RecordError(errors)
         return extra

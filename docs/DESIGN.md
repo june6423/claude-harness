@@ -612,6 +612,21 @@ A long tower session loses quality and costs more for each turn. A tower gets a 
 5. Live test: with a 20000-token limit, the hook stopped an ET session, ET wrote the handover, and the request appeared. The restart step has unit tests only, because a live restart would replace the running towers of the same name.
 6. When the faculty-opsd towers started this feature, DT had about 261000 and ET about 267000 context tokens.
 
+## 19. Models (2026-10-10)
+
+| ID | Decision |
+|---|---|
+| D17 | Every model call is Opus 5.5 or stronger. Token cost is not a constraint. |
+| D18 | DT and VT use Fable 5.1. ET uses Opus 5.5. |
+
+Reason for D18: VT is the gate for FULL runs and for result acceptance, so a missed defect becomes a research conclusion. A DT error in design or paper reading spreads to all later work. ET uses the most tokens, and its failures show in run results and VT verdicts.
+
+1. `config.json` `towers.models` gives the model of each tower. `harness tower start`, `restart`, and the rotation in the executor daemon use it. `--model` overrides it for one start.
+2. The rendered settings set `CLAUDE_CODE_SUBAGENT_MODEL` to the model of the tower and `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1`. A subagent always uses the tower model, whatever the Agent tool asks for.
+3. `ANTHROPIC_DEFAULT_HAIKU_MODEL` is `towers.background_model` (default `claude-opus-5-5`). Claude Code background calls, such as title generation, and the `haiku` alias then use Opus.
+4. The harness defaults keep D17 when `config.json` has no model settings: towers use Opus, and subagents and background calls use Opus.
+5. Check on 2026-10-10: the three tower sessions used only Opus 5.5 and no subagents. The Haiku sessions in the harness transcript folder were short test sessions that ran with `--model haiku`.
+
 ## 9. Open decisions
 
 None. The researcher accepted O1 to O3 as D9 to D11.

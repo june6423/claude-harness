@@ -144,7 +144,7 @@ class Executor:
                 live = [s for s in sessions if s.get("state") not in ("stopped", "failed")]
                 if any(s.get("status") == "busy" for s in live):
                     continue
-                model = towers.last_model(live[0]["sessionId"]) if live else None
+                model = towers.tower_model(name, self.store.root)
                 new = towers.start(name, self.store.root, model, towers.rotation_prompt(name, self.store.root),
                                    replace=True)
                 request.unlink()

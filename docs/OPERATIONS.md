@@ -11,12 +11,12 @@
 bin/harness executor watch
 
 # (2) Tower 세 개 — 백그라운드 세션으로 시작
-bin/harness tower start dt --model opus
-bin/harness tower start et --model opus
-bin/harness tower start vt --model opus
+bin/harness tower start dt
+bin/harness tower start et
+bin/harness tower start vt
 ```
 
-- 모델은 `--model`로 지정합니다. 지정하지 않으면 Claude Code 기본 모델을 씁니다.
+- 모델은 데이터 경로 `config.json`의 `towers.models`를 따릅니다. 현재 DT·VT는 Fable, ET는 Opus입니다. 한 번만 바꾸려면 `--model`을 붙입니다. 각 Tower의 subagent는 그 Tower와 같은 모델로 고정되고, Claude Code 내부 보조 호출도 Opus로 실행됩니다.
 - 처음 시작할 때 harness repo 최상위에 sandbox용 빈 파일(`.bashrc`, `.gitconfig` 등)이 생깁니다. git에서 제외되며 지우지 않아도 됩니다.
 - 실행 중인 세션은 `claude agents`로 확인합니다. 첫 지시 없이 시작한 Tower는 입력을 기다리므로 `blocked / idle`로 보입니다. 정상입니다.
 - 같은 이름의 세션이 이미 있으면 `start`는 거부됩니다. 지침이나 settings를 바꾼 뒤에는 `bin/harness tower restart <tower> --model opus`로 다시 시작합니다. 기존 세션을 멈추고 목록에서 지운 뒤 새로 띄웁니다. 대화 기록 파일은 남습니다.

@@ -11,6 +11,20 @@ from .records import RecordError
 from .store import REPO_ROOT
 
 TOWERS = ("dt", "et", "vt")
+# Researcher decision (2026-10-10): every model call is Opus 5.5 or stronger.
+MODEL_IDS = {"opus": "claude-opus-5-5", "fable": "claude-fable-5-1"}
+DEFAULT_TOWER_MODEL = "opus"
+DEFAULT_BACKGROUND_MODEL = "claude-opus-5-5"
+
+
+def tower_config(data_root: Path) -> dict:
+    path = data_root / "config.json"
+    config = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    return config.get("towers") or {}
+
+
+def tower_model(tower: str, data_root: Path) -> str:
+    return (tower_config(data_root).get("models") or {}).get(tower, DEFAULT_TOWER_MODEL)
 # Files that the Claude Code sandbox covers in the working directory (list from Claude Code 2.1.294).
 # bubblewrap fails when it must create one of them itself and part of the directory is read-only.
 SANDBOX_PLACEHOLDERS = (".gitconfig", ".gitmodules", ".bashrc", ".bash_profile", ".zshrc", ".zprofile",
@@ -39,7 +53,16 @@ def render_settings(tower: str, data_root: Path, repo: Path = REPO_ROOT) -> Path
         filesystem = settings["sandbox"]["filesystem"]
         filesystem["denyWrite"] = [p for p in filesystem["denyWrite"] if p != str(repo)] + sorted(
             str(entry) for entry in repo.iterdir() if entry.name not in SANDBOX_PLACEHOLDERS + SANDBOX_PLACEHOLDER_DIRS)
-    settings["env"] = {**settings.get("env", {}), "HARNESS_DATA_ROOT": str(data_root)}
+    model = tower_model(tower, data_root)
+    settings["env"] = {
+        **settings.get("env", {}),
+        "HARNESS_DATA_ROOT": str(data_root),
+        # Subagents use the model of their tower, whatever the Agent tool asks for.
+        "CLAUDE_CODE_SUBAGENT_MODEL": MODEL_IDS.get(model, model),
+        "CLAUDE_CODE_SUBAGENT_MODEL_FORCE": "1",
+        # Background calls (title and similar) and the haiku alias also use Opus or stronger.
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": tower_config(data_root).get("background_model", DEFAULT_BACKGROUND_MODEL),
+    }
     # A tower can call the CLI as bin/harness, ./bin/harness, or by its absolute path. Permission
     # rules and sandbox exclusions match command text, so each rule gets all three forms.
     permissions = settings["permissions"]
@@ -148,7 +171,7 @@ def stop(name: str) -> list[str]:
 
 def start(tower: str, data_root: Path, model: str | None = None, prompt: str | None = None,
           wait_seconds: float = 15.0, replace: bool = False, resume: str | None = None) -> dict:
-    command = start_command(tower, data_root, model, resume=resume)
+    command = start_command(tower, data_root, model or tower_model(tower, data_root), resume=resume)
     if replace:
         stop(tower)
     else:

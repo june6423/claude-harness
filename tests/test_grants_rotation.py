@@ -126,12 +126,14 @@ class RotationTest(unittest.TestCase):
         with mock.patch("harness.tower.named", return_value=busy), mock.patch("harness.tower.start") as start:
             self.assertEqual(executor.rotate_towers(), [])
             start.assert_not_called()
+        config = json.loads((self.root / "config.json").read_text())
+        config["towers"] = {"models": {"et": "opus"}}
+        (self.root / "config.json").write_text(json.dumps(config))
         with mock.patch("harness.tower.named", return_value=idle), \
-                mock.patch("harness.tower.last_model", return_value="claude-opus-5-5"), \
                 mock.patch("harness.tower.start", return_value={"sessionId": "s2"}) as start:
             self.assertEqual(executor.rotate_towers(), ["et"])
             args, kwargs = start.call_args
-            self.assertEqual(args[:3], ("et", self.root, "claude-opus-5-5"))
+            self.assertEqual(args[:3], ("et", self.root, "opus"))
             self.assertIn("new ET session after a context rotation", args[3])
             self.assertTrue(kwargs["replace"])
         self.assertFalse(request.exists())

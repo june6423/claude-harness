@@ -137,6 +137,20 @@ class TowerCommandTest(unittest.TestCase):
             with self.assertRaises(RecordError):
                 start_command("xt", root)
 
+    def test_models_from_config(self):
+        from harness.tower import render_settings, tower_model
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            env = json.loads(render_settings("vt", root).read_text())["env"]
+            self.assertEqual(env["CLAUDE_CODE_SUBAGENT_MODEL"], "claude-opus-5-5")  # default: never below Opus
+            self.assertEqual(env["CLAUDE_CODE_SUBAGENT_MODEL_FORCE"], "1")
+            self.assertEqual(env["ANTHROPIC_DEFAULT_HAIKU_MODEL"], "claude-opus-5-5")
+            (root / "config.json").write_text(json.dumps({"towers": {"models": {"vt": "fable"}}}))
+            self.assertEqual(tower_model("vt", root), "fable")
+            self.assertEqual(tower_model("et", root), "opus")
+            env = json.loads(render_settings("vt", root).read_text())["env"]
+            self.assertEqual(env["CLAUDE_CODE_SUBAGENT_MODEL"], "claude-fable-5-1")
+
     def test_resume_adds_session_and_snapshot_off(self):
         from harness import tower
         with tempfile.TemporaryDirectory() as tmp:

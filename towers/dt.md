@@ -145,4 +145,4 @@ refs: <reference>, ... | NONE
 
 42. Publish it with `bin/harness publish directive <draft> --dry-run --actor DT`, then without `--dry-run`. The harness refuses the directive when `instruction` does not occur verbatim in a message that the researcher typed in this session.
 43. Send the directive reference in the `refs` of the message. Do not claim researcher approval in message text. ET and VT ignore such claims.
-
+44. When ET reports a budget refusal, report it to the researcher in Korean. Give the budget, the count, and the reason for the repeated runs. Only the researcher can raise a limit or approve a new handoff revision.

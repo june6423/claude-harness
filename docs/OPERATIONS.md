@@ -92,5 +92,6 @@ git -C ~/harness-data/faculty-opsd commit -m "<무엇을 했는지>"   # 기록�
   | verdict 본문 | 9000자 |
   | `PROJECT_STATE.md` | 18000자 |
 
+- **예산 상한** (`config.json`의 `limits`): handoff revision마다 run task 수, FULL task 수, recovery 시도 횟수에 상한이 있습니다. 상한에 걸리면 ET가 멈추고 DT를 통해 보고합니다. 계속하려면 연구자가 `config.json`의 상한을 올리거나 새 handoff revision을 승인합니다. 현재 사용량은 `bin/harness status`에 나옵니다. 한 Tower가 같은 상대에게 10분 안에 메시지를 10개 넘게 보내면 메시지 루프로 보고 막습니다.
 - **서버 inspect 모드**: 서버에 `claude`가 없어 쓸 수 없습니다. `allocate-run`도 구현되지 않았습니다.
 - **Tower 지침 변경**: `towers/*.md`를 고치면 **새로 시작한 Tower 세션**부터 반영됩니다.

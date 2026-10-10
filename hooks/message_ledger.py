@@ -2,8 +2,9 @@
 """Claude Code hook: record each sent and received cross-session message.
 
 Events: PreToolUse (matcher SendMessage) and UserPromptSubmit.
-The hook never blocks and never prints to stdout, because UserPromptSubmit
-stdout goes into the model context.
+The hook never prints to stdout, because UserPromptSubmit stdout goes into
+the model context. It blocks (exit 2) only a sent message over the rate
+limit limits.messages_per_peer_per_10_minutes, to stop a message loop.
 """
 
 from __future__ import annotations
@@ -50,12 +51,34 @@ def main() -> int:
         event = json.load(sys.stdin)
         found = entries(event, args.tower)
         if found:
-            path = find_data_root() / "messages.jsonl"
+            root = find_data_root()
+            path = root / "messages.jsonl"
+            if found[0]["direction"] == "sent" and over_rate_limit(root, path, found[0]):
+                journal.append(path, {**found[0], "blocked": "rate limit"})
+                print("message_ledger: too many messages to this peer in 10 minutes. This can be a message "
+                      "loop. Stop and report the situation to the researcher.", file=sys.stderr)
+                return 2
             for entry in found:
                 journal.append(path, entry)
     except Exception as error:  # a ledger failure must not stop the session
         print(f"message_ledger: {error}", file=sys.stderr)
     return 0
+
+
+def over_rate_limit(root: Path, path: Path, entry: dict) -> bool:
+    from datetime import datetime, timedelta, timezone
+    from harness import journal
+    from harness.store import DEFAULT_LIMITS
+    try:
+        configured = json.loads((root / "config.json").read_text(encoding="utf-8")).get("limits") or {}
+    except (OSError, json.JSONDecodeError):
+        configured = {}
+    limit = {**DEFAULT_LIMITS, **configured}["messages_per_peer_per_10_minutes"]
+    since = datetime.now(timezone.utc) - timedelta(minutes=10)
+    count = sum(1 for e in journal.read(path)
+                if e.get("direction") == "sent" and not e.get("blocked") and e.get("tower") == entry["tower"]
+                and e.get("peer") == entry["peer"] and datetime.fromisoformat(e["at"]) >= since)
+    return count >= limit
 
 
 if __name__ == "__main__":

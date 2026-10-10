@@ -575,6 +575,22 @@ Fields: `target` (et or vt), `scope` (READ_ONLY, LOCAL_CHANGE, REMOTE_RUN), `ins
 
 Test sessions `tdt` and `tet` (Sonnet, sandbox on). The researcher told DT to have ET check `scripts/eval.py`. DT published `DIRECTIVE-GENERAL-001` (READ_ONLY) with the researcher words in `instruction`. DT sent a QUESTION with the reference. ET checked the directive, read the code, and sent an ANSWER with line references and observed or inferred labels. DT gave a Korean summary to the researcher. Unit tests: 60 PASS.
 
+## 16. Budgets (2026-10-10)
+
+The researcher chose budgets and no central cycle. Cross-session messages already move work between towers.
+
+| Limit (`config.json` `limits`) | Default | Checked by |
+|---|---|---|
+| `run_tasks_per_handoff`: run and allocate-run tasks that name one handoff revision | 20 | `harness publish` |
+| `full_tasks_per_handoff`: FULL tasks that name one handoff revision | 3 | `harness publish` |
+| `recovery_attempts`: the highest `lineage.attempt` | 5 | `harness publish` |
+| `messages_per_peer_per_10_minutes`: messages from one tower to one peer | 10 | `message_ledger` hook (blocks the send) |
+
+1. A budget counts tasks for one handoff revision. A new revision needs researcher approval, so a new budget always follows a researcher action.
+2. Only `harness publish` checks budgets. The executor does not check them again, so a lower limit does not reject a task that is already published.
+3. `harness status` shows the use of each budget for the latest revision.
+4. The `faculty-opsd` data root uses run 30, FULL 3, recovery 8, because revision R6 already had 18 run tasks and a recovery chain of 6 when the budgets started.
+
 ## 9. Open decisions
 
 None. The researcher accepted O1 to O3 as D9 to D11.

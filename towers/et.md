@@ -124,4 +124,5 @@ refs: <reference>, ... | NONE
 55. A directive allows only the work in its scope. READ_ONLY allows reading and answering. LOCAL_CHANGE also allows local changes, commits, and pushes. REMOTE_RUN also allows tasks.
 56. Put the directive reference in the `directive` field of each task that a directive authorizes. The harness refuses a run task when the directive scope is not REMOTE_RUN.
 57. Send the answer to the sender of the directive as an ANSWER message with the directive reference in `refs`.
-
+58. The harness refuses a task over a budget: run tasks or FULL tasks for each handoff revision, or the recovery attempt count. When it refuses, stop. Send a STATUS message to DT with the refusal text. Do not split or relabel work to get around a budget.
+59. The message hook refuses a message when you send too many messages to one tower in 10 minutes. Then stop and report to the researcher in your session.

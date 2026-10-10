@@ -238,6 +238,24 @@ class StoreTest(unittest.TestCase):
         self.assertRefused("task", json.dumps(dict(validation, directive=for_vt.ref)), "does not target et")
         self.store.publish("task", json.dumps(dict(validation, directive=self.directive().ref)), "ET")
 
+    def test_budgets_per_handoff(self):
+        os.chmod(self.root / "config.json", 0o644)
+        (self.root / "config.json").write_text(json.dumps(
+            {"limits": {"run_tasks_per_handoff": 2, "full_tasks_per_handoff": 1, "recovery_attempts": 1}}))
+        handoff = self.publish_handoff()
+        verdict = self.publish_verdict(handoff)
+        task = json.loads(fixture("task_transplant_full.json", HANDOFF_REF=handoff.ref, VERDICT_REF=verdict.ref))
+        first = self.store.publish("task", json.dumps(task), "ET")
+        self.assertRefused("task", json.dumps(task), "full_tasks_per_handoff")
+        validation = dict(task, execution_class="VALIDATION", pre_run_verdict="NONE",
+                          lineage={"parent": first.record_id, "recovery_of": first.record_id, "attempt": 2})
+        self.assertRefused("task", json.dumps(validation), "recovery_attempts")
+        validation["lineage"]["attempt"] = 1
+        self.store.publish("task", json.dumps(validation), "ET")
+        self.assertRefused("task", json.dumps(validation), "run_tasks_per_handoff")
+        self.assertEqual(self.store.budget_usage(handoff.ref),
+                         {"run_tasks": 2, "full_tasks": 1, "max_recovery_attempt": 1})
+
     def test_ref_format(self):
         with self.assertRaises(RecordError):
             parse_ref("TASK-X-001")

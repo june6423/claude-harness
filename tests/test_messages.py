@@ -90,6 +90,24 @@ class LedgerHookTest(unittest.TestCase):
             self.assertIsNone(entry["header"])
             self.assertIn("must start with", entry["header_error"])
 
+    def test_message_loop_is_blocked(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "config.json").write_text(json.dumps({"limits": {"messages_per_peer_per_10_minutes": 3}}))
+            text = format_message("STATUS", [], "ping")
+            event = {"hook_event_name": "PreToolUse", "tool_name": "SendMessage",
+                     "tool_input": {"to": "dt", "message": text}}
+            codes = []
+            for _ in range(4):
+                stdin = io.StringIO(json.dumps(event))
+                with mock.patch.dict(os.environ, {"HARNESS_DATA_ROOT": str(root)}), \
+                        mock.patch.object(sys, "stdin", stdin), mock.patch.object(sys, "stderr", io.StringIO()), \
+                        mock.patch.object(sys, "argv", ["message_ledger.py", "--tower", "et"]):
+                    codes.append(message_ledger.main())
+            self.assertEqual(codes, [0, 0, 0, 2])
+            entries = list(journal.read(root / "messages.jsonl"))
+            self.assertEqual(entries[-1]["blocked"], "rate limit")
+
     def test_other_events_write_nothing(self):
         with tempfile.TemporaryDirectory() as tmp:
             event = {"hook_event_name": "PreToolUse", "tool_name": "Bash", "tool_input": {"command": "ls"}}

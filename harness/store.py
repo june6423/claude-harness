@@ -23,7 +23,12 @@ POINTER_FILE = REPO_ROOT / ".harness-data-root"
 ACTORS = ("DT", "ET", "VT", "EXECUTOR", "RESEARCHER")
 # Character limits. config.json "limits" can change each value.
 DEFAULT_LIMITS = {"handoff_body_chars": 12000, "report_body_chars": 9000, "verdict_body_chars": 9000,
-                  "directive_body_chars": 9000, "project_state_chars": 18000}
+                  "directive_body_chars": 9000, "project_state_chars": 18000,
+                  # Budgets for each handoff revision. A new revision needs researcher approval,
+                  # so the counts start again only after the researcher acts.
+                  "run_tasks_per_handoff": 20, "full_tasks_per_handoff": 3, "recovery_attempts": 5,
+                  # Cross-session messages from one tower to one peer in 10 minutes.
+                  "messages_per_peer_per_10_minutes": 10}
 PROJECT_STATE_TEMPLATE = """# Project State
 
 ## Current decisions
@@ -183,6 +188,41 @@ class Store:
             raise RecordError(f"the {kind} body has {len(body)} characters. The limit is {limit} ({key}). "
                               "Remove repeated or settled material, or refer to it by record reference")
 
+    def budget_usage(self, handoff_ref: str) -> dict[str, int]:
+        usage = {"run_tasks": 0, "full_tasks": 0, "max_recovery_attempt": 0}
+        for record in self.records("task"):
+            if record.fields.get("handoff") != handoff_ref:
+                continue
+            if record.fields.get("mode") in ("run", "allocate-run"):
+                usage["run_tasks"] += 1
+            if record.fields.get("execution_class") == "FULL":
+                usage["full_tasks"] += 1
+            usage["max_recovery_attempt"] = max(usage["max_recovery_attempt"],
+                                                record.fields.get("lineage", {}).get("attempt", 0))
+        return usage
+
+    def check_budgets(self, fields: dict[str, Any]) -> None:
+        """Refuse a new task over a budget. Only publish checks budgets; the executor does not."""
+        if fields.get("handoff", NONE) == NONE:
+            return
+        limits = self.limits()
+        usage = self.budget_usage(fields["handoff"])
+        errors = []
+        if fields.get("mode") in ("run", "allocate-run") and usage["run_tasks"] >= limits["run_tasks_per_handoff"]:
+            errors.append(f"the handoff already has {usage['run_tasks']} run tasks. "
+                          f"The limit is {limits['run_tasks_per_handoff']} (run_tasks_per_handoff)")
+        if fields.get("execution_class") == "FULL" and usage["full_tasks"] >= limits["full_tasks_per_handoff"]:
+            errors.append(f"the handoff already has {usage['full_tasks']} FULL tasks. "
+                          f"The limit is {limits['full_tasks_per_handoff']} (full_tasks_per_handoff)")
+        attempt = fields.get("lineage", {}).get("attempt", 0)
+        if attempt > limits["recovery_attempts"]:
+            errors.append(f"recovery attempt {attempt} is more than the limit {limits['recovery_attempts']} "
+                          "(recovery_attempts)")
+        if errors:
+            errors.append("Stop and report to DT. Only the researcher can raise a limit in config.json, "
+                          "or approve a new handoff revision")
+            raise RecordError(errors)
+
     def publish(self, kind: str, text: str, actor: str, dry_run: bool = False) -> Record:
         if actor not in ACTORS:
             raise RecordError(f"actor must be one of {', '.join(ACTORS)}")
@@ -193,6 +233,8 @@ class Store:
             raise RecordError("a draft must not contain 'overall'. The CLI computes it")
         validate(kind, fields, body)
         self.check_limits(kind, body)
+        if kind == "task":
+            self.check_budgets(fields)
         with self.locked():
             extra = self.check_references(kind, fields)
             record_id = self.next_id(kind, fields)

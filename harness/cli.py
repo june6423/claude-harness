@@ -60,6 +60,11 @@ def cmd_status(args) -> int:
         head = (f"R{handoff.fields['revision']} {handoff.fields['status']} {handoff.fields['authorization']}"
                 if handoff else "no handoff")
         print(f"{experiment}: {head}")
+        if handoff:
+            usage, limits = store.budget_usage(handoff.ref), store.limits()
+            print(f"  budget R{handoff.fields['revision']}: run tasks {usage['run_tasks']}/{limits['run_tasks_per_handoff']}, "
+                  f"FULL {usage['full_tasks']}/{limits['full_tasks_per_handoff']}, "
+                  f"max recovery attempt {usage['max_recovery_attempt']}/{limits['recovery_attempts']}")
         for task in items.get("tasks", []):
             result_id = f"RESULT-{task.record_id}"
             outcome = store.load(result_id).fields["outcome"] if store.path_of(result_id).exists() else "WAITING"

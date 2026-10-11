@@ -30,6 +30,7 @@ from .transport import Completed, Transport
 LOG_CHUNK_BYTES = 1 << 20
 TAIL_BYTES = 4000
 START_GRACE_SECONDS = 30
+KEEPALIVE_RETRY_SECONDS = 300
 DEFAULT_FETCH_MAX_FILE_BYTES = 1 << 20
 DEFAULT_FETCH_MAX_TOTAL_BYTES = 20 << 20
 
@@ -131,6 +132,29 @@ class Executor:
                 slots.add(tuple(data["slot"]))
         return slots
 
+    def revive_towers(self) -> list[str]:
+        """Respawn each tower that Claude Code stopped after idle time, so that messages reach it."""
+        if not (self.store.config().get("towers") or {}).get("keep_alive", True):
+            return []
+        from . import tower as towers
+        state_path = self.paths.base / "keepalive.json"
+        last = read_json(state_path)
+        revived = []
+        for name in towers.TOWERS:
+            try:
+                session = towers.reaped(name)
+                if session is None or time.time() - last.get(session["id"], 0) < KEEPALIVE_RETRY_SECONDS:
+                    continue
+                last[session["id"]] = time.time()
+                write_json(state_path, last)
+                towers.respawn(session["id"])
+                journal.append(self.store.journal_path, {"actor": "EXECUTOR", "event": "TOWER_REVIVED",
+                                                         "tower": name, "session": session.get("sessionId")})
+                revived.append(name)
+            except Exception as error:
+                print(f"{utc()} keep-alive for {name} failed: {error}", flush=True)
+        return revived
+
     def rotate_towers(self) -> list[str]:
         """Start a new session for each tower that wrote a handover, once the tower is idle."""
         if not (self.store.config().get("towers") or {}).get("auto_rotate", True):
@@ -162,6 +186,8 @@ class Executor:
         reap_children()
         for name in self.rotate_towers():
             print(f"{utc()} started a new {name} session after a handover", flush=True)
+        for name in self.revive_towers():
+            print(f"{utc()} respawned the idle-stopped {name} session", flush=True)
         self.paths.claims.mkdir(parents=True, exist_ok=True)
         for claim in sorted(self.paths.claims.glob("*.json")):
             data = read_json(claim)

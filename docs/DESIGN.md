@@ -627,6 +627,14 @@ Reason for D18: VT is the gate for FULL runs and for result acceptance, so a mis
 4. The harness defaults keep D17 when `config.json` has no model settings: towers use Opus, and subagents and background calls use Opus.
 5. Check on 2026-10-10: the three tower sessions used only Opus 5.5 and no subagents. The Haiku sessions in the harness transcript folder were short test sessions that ran with `--model haiku`.
 
+## 20. Keeping towers reachable (2026-10-11)
+
+1. Claude Code stops the process of a background session that is done and unattached for about an hour. The conversation stays on disk, but the session has no inbox socket, so cross-session messages fail with "not reachable". On 2026-10-10 and 2026-10-11 this stopped VT and ET after rotations, and DT could not reach VT. A session that waits for input (blocked) keeps its process.
+2. No setting changes the one-hour rule. Pinning exists only as a key in the agent view.
+3. The executor daemon checks dt, et, and vt at each step. When the latest session of a tower has state done and no process, the daemon runs `claude respawn <id>` (at most once in 300 seconds for one session). The session continues its conversation under the same ID with its launch settings. A live test confirmed the data root setting and message delivery after a respawn.
+4. `claude stop` also gives state done and no process, so the daemon revives such a session. To stop a tower and keep it stopped, use `harness tower stop`, which also removes the session. `config.json` `towers.keep_alive: false` turns the revival off.
+5. Tower rule: when SendMessage reports a tower as not reachable, wait one minute and send again. If that fails, tell the researcher.
+
 ## 9. Open decisions
 
 None. The researcher accepted O1 to O3 as D9 to D11.

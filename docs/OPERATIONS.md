@@ -20,7 +20,8 @@ bin/harness tower start vt
 - 처음 시작할 때 harness repo 최상위에 sandbox용 빈 파일(`.bashrc`, `.gitconfig` 등)이 생깁니다. git에서 제외되며 지우지 않아도 됩니다.
 - 실행 중인 세션은 `claude agents`로 확인합니다. 첫 지시 없이 시작한 Tower는 입력을 기다리므로 `blocked / idle`로 보입니다. 정상입니다.
 - 같은 이름의 세션이 이미 있으면 `start`는 거부됩니다. 지침이나 settings를 바꾼 뒤에는 `bin/harness tower restart <tower> --model opus`로 다시 시작합니다. 기존 세션을 멈추고 목록에서 지운 뒤 새로 띄웁니다. 대화 기록 파일은 남습니다.
-- Tower만 끄려면 `bin/harness tower stop <tower>`를 씁니다.
+- Tower만 끄려면 `bin/harness tower stop <tower>`를 씁니다. `claude stop`으로 끄면 executor daemon이 다시 살립니다.
+- Claude Code는 일을 마친 백그라운드 세션을 약 1시간 뒤 멈춥니다. 그러면 메시지를 받을 수 없게 되므로, executor daemon이 멈춘 Tower를 `claude respawn`으로 같은 대화 그대로 다시 살립니다. **executor daemon이 꺼져 있으면 이 기능도 동작하지 않습니다.**
 - **재시작하면 Tower가 대화 맥락을 잃습니다.** 맥락을 유지하려면 이전 세션을 이어서 실행합니다: `bin/harness tower restart <tower> --model opus --resume <이전 세션 ID 앞자리>`. 대화 기록은 그대로 이어지고, 바뀐 지침과 settings는 새로 적용됩니다. 이전 세션 ID는 `claude agents --json --all` 또는 `~/.claude/projects/-home-june6423-harness/`의 파일 이름에서 찾습니다.
 
 ## 2. DT와 실험 기획

@@ -75,3 +75,4 @@ refs: <reference>, ... | NONE
 34. The worklog is a set of notes. Records are the evidence. When a worklog entry and a record disagree, use the record.
 35. When the context guard tells you to write a handover, write it at once. Give the current work and its state, each open item, each running task ID, each message that waits for an answer, and the next step. Then run `bin/harness handover vt <draft>` and end your turn.
 36. After a rotation, the first prompt of the new session tells you what to read. Do it before other work.
+37. When SendMessage says that a tower is not reachable, wait one minute and send the message again. The harness starts an idle-stopped tower again. If the second send also fails, tell the researcher.

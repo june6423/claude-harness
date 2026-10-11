@@ -139,5 +139,34 @@ class RotationTest(unittest.TestCase):
         self.assertFalse(request.exists())
 
 
+class KeepAliveTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = init_data_root(Path(self.tmp.name) / "data", write_pointer=False)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_reaped_detection(self):
+        from harness import tower
+        from harness.store import REPO_ROOT
+        rows = {"et": [{"id": "a", "cwd": str(REPO_ROOT), "state": "done", "startedAt": 2}],
+                "dt": [{"id": "b", "cwd": str(REPO_ROOT), "state": "stopped", "startedAt": 2}],
+                "vt": [{"id": "c", "cwd": str(REPO_ROOT), "state": "done", "pid": 5, "startedAt": 2}]}
+        with mock.patch.object(tower, "named", side_effect=lambda name: rows[name]):
+            self.assertEqual(tower.reaped("et")["id"], "a")   # idle-stopped: no process
+            self.assertIsNone(tower.reaped("dt"))             # stopped on purpose
+            self.assertIsNone(tower.reaped("vt"))             # process alive
+
+    def test_executor_respawns_once_per_interval(self):
+        executor = Executor(Store(self.root))
+        session = {"id": "a", "sessionId": "a-full"}
+        with mock.patch("harness.tower.reaped", side_effect=lambda name: session if name == "et" else None), \
+                mock.patch("harness.tower.respawn") as respawn:
+            self.assertEqual(executor.revive_towers(), ["et"])
+            self.assertEqual(executor.revive_towers(), [])  # waits KEEPALIVE_RETRY_SECONDS before a retry
+            respawn.assert_called_once_with("a")
+
+
 if __name__ == "__main__":
     unittest.main()

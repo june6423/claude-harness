@@ -41,4 +41,4 @@ python3 -m unittest discover -s tests -t .
 
 ## Status
 
-Phases 0, 1, 2, and 4 are complete. See `docs/DESIGN.md`. The researcher guide is `docs/OPERATIONS.md` (Korean).
+Phases 0, 1, 2, and 4 are complete. See `docs/DESIGN.md`. The installation guide is `docs/SETUP.md` and the researcher guide is `docs/OPERATIONS.md` (both Korean). `docs/config.example.json` is a data root configuration example.

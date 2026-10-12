@@ -2,7 +2,7 @@
 
 이 문서는 연구자가 DT·ET·VT와 executor를 직접 띄우고, 실험을 기획부터 결과 보고까지 진행하는 방법을 설명합니다. 자동 cycle(Phase 5)은 아직 없으므로 각 Tower는 연구자가 시작합니다. 단계 사이의 전달은 Tower끼리 cross-session 메시지로 합니다.
 
-모든 명령은 `/home/june6423/harness`에서 실행합니다. 데이터 경로는 `.harness-data-root`가 가리키는 곳입니다(현재 `~/harness-data/faculty-opsd`).
+모든 명령은 harness repo(예: `~/harness`)에서 실행합니다. 데이터 경로(`<data-root>`)는 `.harness-data-root`가 가리키는 곳이고, `bin/harness root`로 확인합니다. 처음 설치는 `docs/SETUP.md`를 봅니다.
 
 ## 1. 시작
 
@@ -22,7 +22,7 @@ bin/harness tower start vt
 - 같은 이름의 세션이 이미 있으면 `start`는 거부됩니다. 지침이나 settings를 바꾼 뒤에는 `bin/harness tower restart <tower> --model opus`로 다시 시작합니다. 기존 세션을 멈추고 목록에서 지운 뒤 새로 띄웁니다. 대화 기록 파일은 남습니다.
 - Tower만 끄려면 `bin/harness tower stop <tower>`를 씁니다. `claude stop`으로 끄면 executor daemon이 다시 살립니다.
 - Claude Code는 일을 마친 백그라운드 세션을 약 1시간 뒤 멈춥니다. 그러면 메시지를 받을 수 없게 되므로, executor daemon이 멈춘 Tower를 `claude respawn`으로 같은 대화 그대로 다시 살립니다. **executor daemon이 꺼져 있으면 이 기능도 동작하지 않습니다.**
-- **재시작하면 Tower가 대화 맥락을 잃습니다.** 맥락을 유지하려면 이전 세션을 이어서 실행합니다: `bin/harness tower restart <tower> --model opus --resume <이전 세션 ID 앞자리>`. 대화 기록은 그대로 이어지고, 바뀐 지침과 settings는 새로 적용됩니다. 이전 세션 ID는 `claude agents --json --all` 또는 `~/.claude/projects/-home-june6423-harness/`의 파일 이름에서 찾습니다.
+- **재시작하면 Tower가 대화 맥락을 잃습니다.** 맥락을 유지하려면 이전 세션을 이어서 실행합니다: `bin/harness tower restart <tower> --model opus --resume <이전 세션 ID 앞자리>`. 대화 기록은 그대로 이어지고, 바뀐 지침과 settings는 새로 적용됩니다. 이전 세션 ID는 `claude agents --json --all` 또는 `~/.claude/projects/<harness 경로의 / 를 - 로 바꾼 이름>/`의 파일 이름에서 찾습니다.
 
 ## 2. DT와 실험 기획
 
@@ -95,13 +95,13 @@ claude attach et                   # ET가 무엇을 하는지 직접 보기 (VT
 ```bash
 bin/harness tower stop dt; bin/harness tower stop et; bin/harness tower stop vt    # Tower 종료
 # executor 터미널에서 Ctrl+C. 실행 중인 원격 작업은 계속되며, 다음 executor가 다시 연결합니다
-git -C ~/harness-data/faculty-opsd add -A
-git -C ~/harness-data/faculty-opsd commit -m "<무엇을 했는지>"   # 기록·산출물·상태를 데이터 경로 git에 보관
+git -C <data-root> add -A
+git -C <data-root> commit -m "<무엇을 했는지>"   # 기록·산출물·상태를 데이터 경로 git에 보관
 ```
 
 ## 6. 알아 둘 제한
 
-- **원격 실행**: run task 하나는 서버의 전용 checkout(`/home/vision/dongjun/harness/faculty-opsd`)과 기존 컨테이너를 사용합니다. 서버당 한 번에 하나씩 실행합니다.
+- **원격 실행**: run task는 서버의 harness 전용 checkout(`config.json`의 `servers.<server>.repos.<key>.path`)과 등록된 컨테이너를 사용합니다. checkout 하나에서는 한 번에 하나씩 실행합니다. 동시에 돌리려면 checkout을 하나 더 만들어 다른 repo 키로 등록합니다.
 - **ET의 GitHub 접근**: `bin/harness git <repo> push|fetch|pull|ls-remote`로만 합니다. `origin`만 허용하고, force·delete 계열 옵션은 막습니다.
 - **크기 상한** (`config.json`의 `limits`로 변경 가능)
 

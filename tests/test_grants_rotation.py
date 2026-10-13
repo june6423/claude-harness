@@ -151,12 +151,14 @@ class KeepAliveTest(unittest.TestCase):
         from harness import tower
         from harness.store import REPO_ROOT
         rows = {"et": [{"id": "a", "cwd": str(REPO_ROOT), "state": "done", "startedAt": 2}],
-                "dt": [{"id": "b", "cwd": str(REPO_ROOT), "state": "stopped", "startedAt": 2}],
+                "dt": [{"id": "b", "cwd": str(REPO_ROOT), "state": "blocked", "startedAt": 2}],
                 "vt": [{"id": "c", "cwd": str(REPO_ROOT), "state": "done", "pid": 5, "startedAt": 2}]}
         with mock.patch.object(tower, "named", side_effect=lambda name: rows[name]):
-            self.assertEqual(tower.reaped("et")["id"], "a")   # idle-stopped: no process
-            self.assertIsNone(tower.reaped("dt"))             # stopped on purpose
+            self.assertEqual(tower.reaped("et")["id"], "a")   # done and no process
+            self.assertEqual(tower.reaped("dt")["id"], "b")   # blocked (waits for a reply) and no process
             self.assertIsNone(tower.reaped("vt"))             # process alive
+        with mock.patch.object(tower, "named", return_value=[]):
+            self.assertIsNone(tower.reaped("et"))             # removed by 'harness tower stop'
 
     def test_executor_respawns_once_per_interval(self):
         executor = Executor(Store(self.root))

@@ -629,9 +629,9 @@ Reason for D18: VT is the gate for FULL runs and for result acceptance, so a mis
 
 ## 20. Keeping towers reachable (2026-10-11)
 
-1. Claude Code stops the process of a background session that is done and unattached for about an hour. The conversation stays on disk, but the session has no inbox socket, so cross-session messages fail with "not reachable". On 2026-10-10 and 2026-10-11 this stopped VT and ET after rotations, and DT could not reach VT. A session that waits for input (blocked) keeps its process.
+1. Claude Code stops the process of a background session that is done and unattached for about an hour. The conversation stays on disk, but the session has no inbox socket, so cross-session messages fail with "not reachable". On 2026-10-10 and 2026-10-11 this stopped VT and ET after rotations, and DT could not reach VT. A blocked session (it waits for a reply) also loses its process after about an hour: on 2026-10-12 ET waited for a decision, lost its process, and DT could not reach it, because the first version of the revival checked only state done.
 2. No setting changes the one-hour rule. Pinning exists only as a key in the agent view.
-3. The executor daemon checks dt, et, and vt at each step. When the latest session of a tower has state done and no process, the daemon runs `claude respawn <id>` (at most once in 300 seconds for one session). The session continues its conversation under the same ID with its launch settings. A live test confirmed the data root setting and message delivery after a respawn.
+3. The executor daemon checks dt, et, and vt at each step. When no session of a tower has a process (state done or blocked), the daemon runs `claude respawn <id>` (at most once in 300 seconds for one session). The session continues its conversation under the same ID with its launch settings. A live test confirmed the data root setting and message delivery after a respawn.
 4. `claude stop` also gives state done and no process, so the daemon revives such a session. To stop a tower and keep it stopped, use `harness tower stop`, which also removes the session. `config.json` `towers.keep_alive: false` turns the revival off.
 5. Tower rule: when SendMessage reports a tower as not reachable, wait one minute and send again. If that fails, tell the researcher.
 

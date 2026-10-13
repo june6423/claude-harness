@@ -176,14 +176,14 @@ def respawn(session_id: str) -> None:
 
 
 def reaped(tower: str, repo: Path = REPO_ROOT) -> dict | None:
-    """The latest session of a tower when its process is gone and its state is done. Claude Code stops
-    the process of a done session after about an hour without attachment. 'claude stop' gives the same
-    state. 'harness tower stop' also removes the session, so a session stopped that way is not here."""
+    """The latest session of a tower when its process is gone. Claude Code stops the process of a
+    done or blocked session after about an hour without attachment (seen 2026-10-11 for done and
+    2026-10-12 for blocked). 'harness tower stop' removes the session, so a session stopped that
+    way is not here."""
     rows = [s for s in named(tower) if s.get("cwd") == str(repo)]
     if not rows or any(s.get("pid") for s in rows):
         return None
-    latest = max(rows, key=lambda s: s.get("startedAt", 0))
-    return latest if latest.get("state") == "done" else None
+    return max(rows, key=lambda s: s.get("startedAt", 0))
 
 
 def start(tower: str, data_root: Path, model: str | None = None, prompt: str | None = None,

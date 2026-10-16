@@ -17,6 +17,7 @@ import shlex
 import subprocess
 import sys
 import time
+import traceback
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -236,8 +237,15 @@ class Executor:
     def watch(self, once: bool = False) -> None:
         with self.singleton():
             while True:
-                for task_id in self.step():
-                    print(f"{utc()} started worker for {task_id}", flush=True)
+                try:
+                    for task_id in self.step():
+                        print(f"{utc()} started worker for {task_id}", flush=True)
+                except Exception:  # for example, config.json that is invalid during an edit
+                    if once:
+                        raise
+                    print(f"{utc()} executor step failed; the next step tries again", flush=True)
+                    traceback.print_exc(file=sys.stdout)
+                    sys.stdout.flush()
                 if once:
                     return
                 time.sleep(self.poll_seconds)

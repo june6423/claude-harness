@@ -218,6 +218,23 @@ class ExecutorTest(unittest.TestCase):
         self.assertFalse(pid_alive(process.pid))
         process.returncode = 0
 
+    def test_daemon_survives_a_failed_step(self):
+        executor = Executor(self.store)
+        calls = []
+
+        def step():
+            calls.append(1)
+            if len(calls) == 1:
+                raise ValueError("config.json is invalid")
+            raise KeyboardInterrupt  # end the loop after the second step
+
+        executor.poll_seconds = 0
+        with mock.patch.object(executor, "step", side_effect=step), \
+                mock.patch("sys.stdout", new=__import__("io").StringIO()):
+            with self.assertRaises(KeyboardInterrupt):
+                executor.watch()
+        self.assertEqual(len(calls), 2)
+
     def test_dead_worker_is_restarted(self):
         task = self.task("scripts/ok.sh")
         executor = Executor(self.store)

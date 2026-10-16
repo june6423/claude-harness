@@ -10,7 +10,7 @@
     "full_tasks_per_handoff": 3,
     "recovery_attempts": 5,
     "messages_per_peer_per_10_minutes": 10,
-    "context_rotate_tokens": 300000
+    "context_rotate_tokens": 600000
   },
   "executor": {"poll_seconds": 10},
   "workspaces": {

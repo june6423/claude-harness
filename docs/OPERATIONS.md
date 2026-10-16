@@ -55,7 +55,7 @@ handoff에 없는 일을 ET나 VT에게 시키려면 DT에게 말하면 됩니�
 
 ## 2.3 세션 교체 (맥락이 커질 때)
 
-Tower의 맥락이 300000 토큰(`limits.context_rotate_tokens`)을 넘으면 다음 순서로 진행됩니다.
+Tower의 맥락이 600000 토큰(`limits.context_rotate_tokens`)을 넘으면 다음 순서로 진행됩니다.
 
 1. Tower가 인계 기록을 `worklog/<tower>.md`에 씁니다.
 2. executor daemon이 그 Tower를 새 세션으로 다시 시작합니다.

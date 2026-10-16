@@ -30,7 +30,7 @@ DEFAULT_LIMITS = {"handoff_body_chars": 12000, "report_body_chars": 9000, "verdi
                   # Cross-session messages from one tower to one peer in 10 minutes.
                   "messages_per_peer_per_10_minutes": 10,
                   # A tower writes a handover and gets a new session at this context size.
-                  "context_rotate_tokens": 300000}
+                  "context_rotate_tokens": 600000}
 PROJECT_STATE_TEMPLATE = """# Project State
 
 ## Current decisions

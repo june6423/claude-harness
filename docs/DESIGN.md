@@ -605,12 +605,13 @@ The researcher expects repeated questions about execution authority. A `grant` r
 
 A long tower session loses quality and costs more for each turn. A tower gets a new session when its context is large.
 
-1. `hooks/context_guard.py` runs at each Stop. It reads the context size of the latest request from the transcript (`input_tokens` + cache creation + cache read). At `limits.context_rotate_tokens` (default 300000) it blocks the stop once and tells the tower to write a handover.
+1. `hooks/context_guard.py` runs at each Stop. It reads the context size of the latest request from the transcript (`input_tokens` + cache creation + cache read). At `limits.context_rotate_tokens` (default 600000; 300000 until 2026-10-16) it blocks the stop once and tells the tower to write a handover.
 2. `harness handover <tower> <draft>` adds the handover to `<data-root>/worklog/<tower>.md` and writes `runtime/rotate/<tower>.json`.
 3. The executor daemon sees the request. When the tower is idle, it restarts the tower with the same model and a first prompt that tells it to read its worklog summary, the last handover, the status, and recent messages.
 4. Each tower keeps a worklog of milestones. The rules state a limit of 40000 characters. Above the limit the tower writes a summary in `<tower>-summary.md` with the `harness-writing` skill. The harness does not enforce or watch the worklog size (researcher decision).
 5. Live test: with a 20000-token limit, the hook stopped an ET session, ET wrote the handover, and the request appeared. The restart step has unit tests only, because a live restart would replace the running towers of the same name.
 6. When the faculty-opsd towers started this feature, DT had about 261000 and ET about 267000 context tokens.
+7. On 2026-10-16 the researcher doubled the limit to 600000. A new session starts at about 45000 tokens and reaches 60000 to 95000 after it reads its worklog, so the 300000 limit left 200000 to 250000 tokens of work. Claude Code compacted an old ET session at about 968000 tokens, so 600000 stays below automatic compaction.
 
 ## 19. Models (2026-10-10)
 

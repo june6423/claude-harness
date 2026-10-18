@@ -384,12 +384,21 @@ class Worker:
         container = (self.repo_config.get("containers") or {}).get(name)
         if not container or not container.get("workdir"):
             raise Rejected(f"container {name!r} has no workdir in config.json for repo {self.task['repo']!r}")
+        # docker: the server runs docker and the runtime is a container on it (default).
+        # direct: the server itself is the runtime, such as a vast.ai instance; no docker exec.
+        self.runtime_kind = container.get("runtime", "docker")
+        if self.runtime_kind not in ("docker", "direct"):
+            raise Rejected(f"container {name!r} has runtime {self.runtime_kind!r}; use docker or direct")
+        self.runtime_image = container.get("image")
         return name, container["workdir"]
 
     def run_dir(self) -> str:
         return f"{self.task['output_root'].rstrip('/')}/.harness/{self.task_id}"
 
     def docker(self, container: str, inner: str) -> str:
+        """A shell command that runs `inner` in the runtime of the task."""
+        if getattr(self, "runtime_kind", "docker") == "direct":
+            return f"bash -c {shlex.quote(inner)}"
         return f"docker exec {shlex.quote(container)} bash -c {shlex.quote(inner)}"
 
     def run_container(self) -> None:
@@ -417,9 +426,11 @@ class Worker:
             'if [ -n "$(git status --porcelain --untracked-files=no)" ]; then '
             "echo 'PREFLIGHT: tracked changes in the server checkout' >&2; exit 66; fi; "
             f"git fetch -q origin {q(f'+refs/heads/{branch}:refs/remotes/origin/{branch}')}; "
-            f"if git show-ref --verify --quiet {q(f'refs/heads/{branch}')}; then git switch -q {q(branch)}; "
-            f"else git switch -q --no-track -c {q(branch)} {q(f'refs/remotes/origin/{branch}')}; fi; "
-            f"git merge -q --ff-only {q(f'refs/remotes/origin/{branch}')}; "
+            # The commit must be on the branch, but it need not be the branch tip: an older commit
+            # of the branch can run again. The checkout is detached at the exact commit.
+            f"if ! git merge-base --is-ancestor {q(commit)} {q(f'refs/remotes/origin/{branch}')} 2>/dev/null; then "
+            f"echo 'PREFLIGHT: commit {commit} is not on origin/{branch}' >&2; exit 69; fi; "
+            f"git switch -q --detach {q(commit)}; "
             'actual=$(git rev-parse HEAD); echo "ACTUAL=$actual"; '
             f'if [ "$actual" != {q(commit)} ]; then echo "PREFLIGHT: HEAD $actual is not the requested commit" >&2; exit 67; fi; '
             f"mode=$(git ls-tree {q(commit)} -- {q(entry)} | cut -d' ' -f1); "
@@ -433,12 +444,23 @@ class Worker:
             return {"transport": "ERROR", "git": git_info, "message": f"git preflight: {done.stderr[-TAIL_BYTES:]}"}
         if done.code != 0:
             return {"preflight": "FAIL", "git": git_info, "message": done.stderr[-TAIL_BYTES:] or f"exit {done.code}"}
-        inspect = self.shell(f"docker inspect -f '{{{{.State.Running}}}} {{{{.Image}}}}' {q(container)}", timeout=60)
-        parts = inspect.stdout.split()
-        if inspect.code != 0 or not parts or parts[0] != "true":
-            return {"preflight": "FAIL", "git": git_info,
-                    "message": f"PREFLIGHT: container {container} is not running. {inspect.stderr[-500:]}"}
-        runtime = {"container": container, "image": parts[1] if len(parts) > 1 else None}
+        if self.runtime_kind == "direct":
+            alive = self.shell("cat /etc/hostname && (nvidia-smi --query-gpu=driver_version --format=csv,noheader "
+                               "2>/dev/null | head -1 || true)", timeout=60)
+            lines = alive.stdout.split()
+            if alive.code != 0 or not lines:
+                return {"preflight": "FAIL", "git": git_info,
+                        "message": f"PREFLIGHT: server {self.task['server']} did not answer. {alive.stderr[-500:]}"}
+            runtime = {"container": container, "image": self.runtime_image, "kind": "direct",
+                       "host": lines[0], "driver": lines[1] if len(lines) > 1 else None}
+        else:
+            inspect = self.shell(f"docker inspect -f '{{{{.State.Running}}}} {{{{.Image}}}}' {q(container)}",
+                                 timeout=60)
+            parts = inspect.stdout.split()
+            if inspect.code != 0 or not parts or parts[0] != "true":
+                return {"preflight": "FAIL", "git": git_info,
+                        "message": f"PREFLIGHT: container {container} is not running. {inspect.stderr[-500:]}"}
+            runtime = {"container": container, "image": parts[1] if len(parts) > 1 else None, "kind": "docker"}
         check = self.shell(self.docker(container, f"test -x {q(workdir)}/{q(entry)}"), timeout=60)
         if check.code != 0:
             return {"preflight": "FAIL", "git": git_info, "runtime": runtime,
@@ -469,8 +491,16 @@ class Worker:
         prepare = self.shell(self.docker(container, f"test ! -e {q(directory)}"), timeout=60)
         if prepare.code != 0:
             raise Rejected(f"run directory {directory} already exists in the container")
-        done = self.shell(f"docker exec -d -w {q(workdir)} {env} {q(container)} setsid bash -c {q(wrapper)}",
-                          timeout=60)
+        if self.runtime_kind == "direct":
+            # The SSH session must return at once: detach the wrapper from all three standard streams.
+            variables = " ".join(q(f"{k}={v}") for k, v in self.task["env"].items())
+            # The braces matter: "a && b &" puts the whole list in a background subshell that keeps
+            # the caller's stdout open, so ssh (or a local caller) waits for the run to end.
+            done = self.shell(f"cd {q(workdir)} && {{ env {variables} setsid nohup bash -c {q(wrapper)} "
+                              "< /dev/null > /dev/null 2>&1 & }", timeout=60)
+        else:
+            done = self.shell(f"docker exec -d -w {q(workdir)} {env} {q(container)} setsid bash -c {q(wrapper)}",
+                              timeout=60)
         if done.code != 0:
             raise Rejected(f"launch failed: {done.stderr[-TAIL_BYTES:]}")
         self.update(phase="LAUNCHED", launched_at=utc(), launched_epoch=time.time(), run_dir=directory,

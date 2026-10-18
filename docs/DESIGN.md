@@ -167,7 +167,7 @@ Rules that the CLI checks:
 Rules for `run` and `allocate-run`:
 
 1. `entrypoint[0]` is a script path inside the repository. The file must have mode 100755 at `commit`.
-2. The entrypoint runs inside the container. The executor does not run host Python.
+2. The entrypoint runs inside the container. The executor does not run host Python. With runtime `direct`, the server itself is the container (for example a vast.ai CUDA instance), and the entrypoint runs on it without `docker exec`.
 3. A FULL task needs `pre_run_verdict`. The executor checks that the verdict is VALID, has kind PRE_RUN, and names the same commit and handoff.
 
 `docker-setup` is out of the Phase 1 scope. Container setup stays a manual researcher action until a later phase.
@@ -335,7 +335,8 @@ Exit criteria:
       "repos": {
         "<repo key>": {
           "path": "<checkout path on the server host>",
-          "containers": {"<container>": {"workdir": "<checkout path in the container>"}}
+          "containers": {"<container>": {"workdir": "<checkout path in the container>",
+                                         "runtime": "docker | direct", "image": "<text for direct>"}}
         }
       }
     }
@@ -361,9 +362,9 @@ Each server repository is a checkout that only the harness uses, such as `/home/
 
 ### 10.3 Run mode
 
-1. Preflight on the host: no tracked changes, fetch the branch, switch, fast-forward only, HEAD equals the commit, and `entrypoint[0]` has mode 100755 at the commit.
-2. Preflight in the container: the container runs, the entrypoint is executable, and `output_root` is writable. The worker records the image and the GPU list.
-3. Launch: `docker exec -d` starts a wrapper with `setsid`. The wrapper writes `pid`, `stdout`, `stderr`, and `exit_code` in `<output_root>/.harness/<task-id>/`.
+1. Preflight on the host: no tracked changes, fetch the branch, the commit is on `origin/<branch>` (it need not be the tip), detached checkout of the exact commit, HEAD equals the commit, and `entrypoint[0]` has mode 100755 at the commit. Until 2026-10-19 the checkout went to the branch tip, so an older commit of a branch could not run again.
+2. Preflight in the container: the container runs, the entrypoint is executable, and `output_root` is writable. The worker records the image and the GPU list. With runtime `direct`, the check is `cat /etc/hostname` and the NVIDIA driver version; the record gets `kind: direct`, the `image` text from `config.json`, the host, and the driver.
+3. Launch: `docker exec -d` starts a wrapper with `setsid`. The wrapper writes `pid`, `stdout`, `stderr`, and `exit_code` in `<output_root>/.harness/<task-id>/`. With runtime `direct`: `cd <workdir> && { env K=V setsid nohup bash -c <wrapper> < /dev/null > /dev/null 2>&1 & }`. The braces are necessary: without them the background subshell keeps the SSH output open, and the launch waits for the run to end.
 4. Poll: the worker copies new log bytes to `runtime/logs/` and checks the exit code. At the timeout, the worker stops the process group.
 5. Finalize: the worker computes the size and SHA-256 of each required output. Then it publishes the result.
 6. A new worker reads the receipt in `runtime/executor/live/`. If the run started, the worker reattaches and does not launch again.
@@ -387,7 +388,7 @@ Each server repository is a checkout that only the harness uses, such as `/home/
 
 1. The executor records GPU use. It does not refuse a FIXED task when another process uses the GPU.
 2. An SSH server needs `git`, `docker`, `bash`, `setsid`, `base64`, and `sha256sum`. No SSH server was tested.
-3. A task needs a running container. The executor does not create containers.
+3. A task needs a running container. The executor does not create containers. A `direct` runtime needs a running server only.
 4. SSH connection sockets are in `/tmp/harness-<uid>/ssh/` (mode 700). A socket under a long data root path was over the Unix socket path limit (found 2026-10-08).
 
 ## 11. Phase 2 — Tower permissions and ET operation

@@ -54,7 +54,8 @@ class ExecutorTest(unittest.TestCase):
         self.root = init_data_root(base / "data", write_pointer=False)
         config = {"executor": {"poll_seconds": 0.2}, "servers": {"local": {"transport": "local", "repos": {
             "repo": {"path": str(self.checkout), "containers": {
-                "testc": {"workdir": str(self.checkout)}, "stopped-c": {"workdir": str(self.checkout)}}}}}}}
+                "testc": {"workdir": str(self.checkout)}, "stopped-c": {"workdir": str(self.checkout)},
+                "directc": {"workdir": str(self.checkout), "runtime": "direct", "image": "vast/cuda-template"}}}}}}}
         (self.root / "config.json").write_text(json.dumps(config))
         self.store = Store(self.root)
         handoff = {"kind": "handoff", "experiment_id": "EXP-1", "revision": 1, "predecessor": "NONE",
@@ -127,6 +128,41 @@ class ExecutorTest(unittest.TestCase):
             self.task(fetch_outputs=["run/other.json"])
         self.assertIn("must also be in required_outputs", str(caught.exception))
 
+    def test_older_commit_on_the_branch_runs(self):
+        source = Path(self.tmp.name) / "src"
+        (source / "NEWER.txt").write_text("newer")
+        git("add", "-A", cwd=source)
+        git("commit", "-q", "-m", "newer", cwd=source)
+        git("push", "-q", str(Path(self.tmp.name) / "origin.git"), "main", cwd=source)
+        result = self.run_task()  # self.commit is now one commit behind the branch tip
+        self.assertEqual(result["outcome"], "PASS", result["message"])
+        self.assertEqual(result["git"]["actual"], self.commit)
+
+    def test_direct_runtime_pass_and_fetch(self):
+        result = self.run_task(runtime={"container": "directc"}, fetch_outputs=["run/metrics.json"],
+                               env={"MARK": "x"})
+        self.assertEqual(result["outcome"], "PASS", result["message"])
+        self.assertEqual(result["runtime"]["kind"], "direct")
+        self.assertEqual(result["runtime"]["image"], "vast/cuda-template")
+        self.assertEqual(len(result["fetched"]), 1)
+        self.assertEqual((self.root / result["logs"]["stdout"]).read_text(), "line one\n")
+
+    def test_direct_runtime_nonzero_exit(self):
+        result = self.run_task("scripts/fail.sh", runtime={"container": "directc"})
+        self.assertEqual((result["outcome"], result["exit_code"]), ("FAIL", 3))
+        self.assertIn("bad input", result["message"])
+
+    def test_direct_runtime_timeout_kills_the_process_group(self):
+        started = time.time()
+        result = self.run_task("scripts/slow.sh", runtime={"container": "directc"}, timeout_seconds=1)
+        self.assertLess(time.time() - started, 20)  # the launch must not wait for the 30-second script
+        self.assertEqual(result["outcome"], "FAIL")
+        self.assertIn("Timed out", result["message"])
+        pid = int((self.out / "case" / ".harness" / result["task"].split("@")[0] / "pid").read_text())
+        time.sleep(0.5)
+        with self.assertRaises(ProcessLookupError):
+            os.kill(pid, 0)
+
     def test_env_reaches_the_script(self):
         result = self.run_task("scripts/envcheck.sh", env={"MARK": "hello"})
         self.assertEqual(result["outcome"], "PASS")
@@ -151,7 +187,7 @@ class ExecutorTest(unittest.TestCase):
     def test_commit_mismatch(self):
         result = self.run_task(commit="0" * 40)
         self.assertEqual(result["preflight"], "FAIL")
-        self.assertIn("not the requested commit", result["message"])
+        self.assertIn("is not on origin/main", result["message"])
 
     def test_tracked_changes_block_the_run(self):
         (self.checkout / "scripts" / "ok.sh").write_text("#!/bin/bash\nexit 0\n")

@@ -37,7 +37,9 @@
         "<server repo key>": {
           "path": "/home/<user>/harness/<repo>",
           "containers": {
-            "<container name>": {"workdir": "/workspace/harness/<repo>"}
+            "<container name>": {"workdir": "/workspace/harness/<repo>"},
+            "<name for a direct runtime>": {"workdir": "<same path as repos.<key>.path>", "runtime": "direct",
+                                            "image": "<instance template, such as nvidia/cuda:12.8.1-devel-ubuntu22.04>"}
           }
         }
       }

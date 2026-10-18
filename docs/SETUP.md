@@ -86,6 +86,8 @@ ssh <ssh_host> 'docker exec <container> test -d /workspace/harness/<repo> && ech
 | `workspaces.<key>.server_outputs` | 컨테이너 안에서 실행 결과를 쓸 폴더 |
 | `servers.<server>.repos.<key>.path` | 서버 호스트에서 본 harness 전용 checkout 경로 |
 | `servers.<server>.repos.<key>.containers.<name>.workdir` | 컨테이너 안에서 본 같은 checkout 경로 |
+| `servers.<server>.repos.<key>.containers.<name>.runtime` | `docker`(기본값) 또는 `direct`. vast.ai처럼 서버 자체가 컨테이너이면 `direct`로 두고, `workdir`은 `path`와 같게, `image`에는 인스턴스 템플릿 이름을 적습니다 |
+| 같은 서버에서 두 run을 동시에 | checkout 하나에서는 run이 하나씩만 실행됩니다. 서버에 clone을 하나 더 만들고 다른 repo 키로 등록합니다. 같은 경로를 두 repo 키에 쓰면 안 됩니다 |
 
 작성한 뒤 데이터 경로를 commit합니다.
 

@@ -37,7 +37,8 @@
       "Edit(/{{DATA_ROOT}}/worklog/et-summary.md)",
       "Bash(bin/harness handover et *)",
       "Bash(bin/harness grants)",
-      "Bash(bin/harness grants *)"
+      "Bash(bin/harness grants *)",
+      "Bash(bin/harness cancel * --actor ET)"
     ],
     "deny": [
       "Edit(/{{HARNESS}}/**)",

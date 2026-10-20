@@ -207,6 +207,22 @@ class StoreTest(unittest.TestCase):
         self.assertEqual(stored.record_id, f"RESULT-{task.record_id}")
         self.assertRefused("result", json.dumps(result), "already exists", "EXECUTOR")
 
+    def test_cancelled_result_needs_its_cancel(self):
+        handoff = self.publish_handoff()
+        verdict = self.publish_verdict(handoff)
+        task = self.store.publish("task", fixture("task_transplant_full.json", HANDOFF_REF=handoff.ref,
+                                                  VERDICT_REF=verdict.ref), "ET")
+        cancel = self.store.publish("cancel", markdown({"kind": "cancel", "task": task.ref, "reason": "Stop."}), "ET")
+        self.assertEqual(cancel.record_id, f"CANCEL-{task.record_id}")
+        result = {"kind": "result", "task": task.ref, "transport": "OK", "preflight": "PASS", "exit_code": None,
+                  "outcome": "CANCELLED", "git": {}, "runtime": {}, "outputs": [], "missing_outputs": [],
+                  "started_at": "x", "ended_at": "y", "logs": {}, "message": "NONE"}
+        self.assertRefused("result", json.dumps(result), "needs 'cancel'", "EXECUTOR")
+        self.assertRefused("result", json.dumps({**result, "outcome": "FAIL", "cancel": cancel.ref}),
+                           "needs 'cancel'", "EXECUTOR")
+        self.store.publish("result", json.dumps({**result, "cancel": cancel.ref}), "EXECUTOR")
+        self.assertEqual(self.store.verify(), [])
+
     def test_report_needs_sections(self):
         handoff = self.publish_handoff()
         front = {"kind": "report", "experiment_id": "VLM-OPSD-TRANSPLANT-001", "handoff": handoff.ref,

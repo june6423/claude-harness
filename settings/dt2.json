@@ -52,7 +52,8 @@
       "Edit(/{{DATA_ROOT}}/state/**)",
       "Edit(/{{DATA_ROOT}}/records/**)",
       "Edit(/{{DATA_ROOT}}/worklog/dt.md)",
-      "Edit(/{{DATA_ROOT}}/worklog/dt-summary.md)"
+      "Edit(/{{DATA_ROOT}}/worklog/dt-summary.md)",
+      "Bash(bin/harness cancel *)"
     ]
   },
   "sandbox": {

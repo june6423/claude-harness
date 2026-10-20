@@ -99,6 +99,7 @@ claude attach et                   # ET가 무엇을 하는지 직접 보기 (VT
 | DT가 연구 판단을 요청함 (예: verdict가 VALID가 아님) | DT와 논의해 결정 |
 | ET가 DT에 QUESTION을 보내고 DT가 답하지 못함 | DT 세션에서 결정을 내려 줌 |
 | Tower가 권한 거부로 멈춤 | `claude attach <tower>`로 원인 확인. 필요하면 settings를 고친 뒤 Tower를 다시 시작 |
+| 실행 중이거나 대기 중인 task를 멈춰야 함 | `bin/harness cancel <TASK-ID> --reason "<이유>" --actor RESEARCHER`. executor가 그 task의 프로세스 그룹만 종료하고 outcome CANCELLED인 result를 게시합니다. 서버에 직접 들어가 kill할 필요가 없습니다. ET와 DT도 같은 명령을 씁니다 |
 
 ## 5. 종료와 기록 보관
 

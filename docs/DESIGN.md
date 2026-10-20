@@ -181,7 +181,8 @@ Rules for `run` and `allocate-run`:
   "transport": "OK | ERROR",
   "preflight": "PASS | FAIL",
   "exit_code": 0,
-  "outcome": "PASS | FAIL | REJECTED | INTERRUPTED",
+  "outcome": "PASS | FAIL | REJECTED | INTERRUPTED | CANCELLED",
+  "cancel": "CANCEL-TASK-...@sha256:... (only when outcome is CANCELLED)",
   "git": {"requested": "<sha>", "actual": "<sha>", "tracked_changes": false},
   "runtime": {"container": "...", "image": "sha256:...", "gpu_uuids": ["..."]},
   "outputs": [{"path": "...", "bytes": 0, "sha256": "..."}],
@@ -199,6 +200,8 @@ Rules for `run` and `allocate-run`:
 4. `missing_outputs` is empty.
 
 The executor does not look at commands that an agent ran during exploration. This rule replaces the old outcome rule.
+
+When the executor stopped the run because of a cancel record (section 22), `outcome` is CANCELLED and `cancel` gives the reference of that record.
 
 ### 5.5 Report (ET writes)
 
@@ -644,6 +647,16 @@ Reason for D18: VT is the gate for FULL runs and for result acceptance, so a mis
 3. The rules of DT2 are `towers/dt.md` followed by `towers/dt2.md`. The harness writes the combined file to `<data-root>/runtime/rules/dt2.md`. The DT2 rules have priority.
 4. `settings/dt2.json` denies `SendMessage`, each `bin/harness publish` command, and each edit in `state/`, `records/`, and the DT worklog. DT2 writes drafts in `runtime/drafts/dt2/`. The researcher gives an accepted draft to DT, and DT publishes it.
 5. DT2 uses the DT model unless `towers.models.dt2` is set. The daemon rotates and revives DT2 as it does the other towers. To end DT2, run `harness tower stop dt2`.
+
+## 22. Cancel records (2026-10-20)
+
+1. Problem: on 2026-10-19 the judge server task TASK-VLM-VAD-REPRO-001-016 (vLLM, timeout 7 days) kept GPU 7 and the a100 `faculty_opsd` slot after its client tasks ended. No tower could stop it: the harness had no stop command, the executor killed a run only at its timeout, towers have no server access (by design), and `judge_serve.sh` had no stop file. The researcher stopped it by hand with `docker exec ... kill`.
+2. A cancel record `CANCEL-<task ID>` has the fields `task` (reference) and `reason`. `harness cancel <task ID> --reason <text> --actor <DT|ET|RESEARCHER>` publishes it. A task has at most one cancel. The harness refuses a cancel for a task that has a result. VT and DT2 cannot cancel.
+3. The worker reads the cancel at each poll. It stops the process group of the run in the runtime (TERM, KILL after 10 seconds), the same stop as for a timeout. It cannot stop any other process. Then it collects and fetches outputs as usual and publishes a result with outcome CANCELLED and the cancel reference. A reattached worker also sees the cancel.
+4. A task that has not launched gets a CANCELLED result with preflight NOT_RUN and no run. The daemon claims a cancelled queued task at once, without its (server, repo) slot.
+5. When the run ends before the worker sees the cancel, the result has the outcome of the run and no `cancel` field.
+6. CANCELLED is not a mechanical failure, so RERUN_AFTER_MECHANICAL_FAILURE does not cover a rerun. ET does not cancel a FULL task itself; DT asks the researcher before it cancels a FULL task.
+7. The journal gets a CANCELLED event with the cancel reference and whether the run had launched.
 
 ## 9. Open decisions
 

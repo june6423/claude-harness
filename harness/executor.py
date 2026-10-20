@@ -206,6 +206,8 @@ class Executor:
         for task_id in self.pending():
             task = self.store.load(task_id).fields
             slot = (task.get("server"), task.get("repo")) if task.get("mode") in ("run", "allocate-run") else None
+            if self.store.cancel_of(task_id):
+                slot = None  # the worker only writes the CANCELLED result; it does not use the checkout
             if slot and slot in busy:
                 continue
             claim = self.paths.claim(task_id)
@@ -300,7 +302,7 @@ class Worker:
             "message": NONE,
         }
         result.update(fields)
-        if result["outcome"] not in ("REJECTED", "INTERRUPTED"):
+        if result["outcome"] not in ("REJECTED", "INTERRUPTED", "CANCELLED"):
             from .records import compute_outcome
             result["outcome"] = compute_outcome(result)
         record = self.store.publish("result", json.dumps(result), "EXECUTOR")
@@ -312,6 +314,8 @@ class Worker:
         self.paths.logs.mkdir(parents=True, exist_ok=True)
         self.receipt.setdefault("started_at", utc())
         try:
+            if self.receipt.get("phase") not in ("LAUNCHED", "FINALIZING") and self.cancelled_before_launch():
+                return
             self.authorize()
             mode = self.task["mode"]
             if mode == "gpu-status":
@@ -327,6 +331,17 @@ class Worker:
         except Exception as error:  # record any other failure; never leave a claim without a result
             self.publish_result(outcome="INTERRUPTED", message=f"worker error: {error!r}"[:TAIL_BYTES])
             raise
+
+    def cancelled_before_launch(self) -> bool:
+        """Write a CANCELLED result when a cancel record exists and the run has not started."""
+        cancel = self.store.cancel_of(self.task_id)
+        if cancel is None:
+            return False
+        self.publish_result(outcome="CANCELLED", cancel=cancel.ref,
+                            message=f"Cancelled before launch by {cancel.ref}: {cancel.fields['reason']}"[:TAIL_BYTES])
+        journal.append(self.store.journal_path, {"actor": "EXECUTOR", "event": "CANCELLED", "task": self.task_id,
+                                                 "cancel": cancel.ref, "launched": False})
+        return True
 
     def authorize(self) -> None:
         fields = {k: v for k, v in self.task.items() if k != "id"}
@@ -411,6 +426,8 @@ class Worker:
         preflight = self.preflight(container, workdir)
         if preflight is not None:
             self.publish_result(**preflight)
+            return
+        if self.cancelled_before_launch():
             return
         self.launch(container, workdir)
         self.poll_until_exit()
@@ -532,6 +549,7 @@ class Worker:
         message = NONE
         exit_code = None
         started = False
+        cancel = None
         while True:
             state = self.shell(self.docker(self.container,
                                            f'D={q(directory)}; if [ -f "$D/exit_code" ]; then echo EXIT $(cat "$D/exit_code"); '
@@ -550,12 +568,15 @@ class Worker:
                            f"The run did not start: no PID file in {directory} after {START_GRACE_SECONDS} seconds.")
                 break
             started = started or (state.code == 0 and words[:1] == ["RUNNING"])
+            cancel = self.store.cancel_of(self.task_id)
+            if cancel is not None:
+                self.stop_run()
+                message = f"Cancelled by {cancel.ref}: {cancel.fields['reason']}"[:TAIL_BYTES]
+                journal.append(self.store.journal_path, {"actor": "EXECUTOR", "event": "CANCELLED",
+                                                         "task": self.task_id, "cancel": cancel.ref, "launched": True})
+                break
             if time.time() > deadline:
-                self.shell(self.docker(self.container,
-                                       f'P=$(cat {q(directory)}/pid); kill -TERM -- -$P 2>/dev/null; '
-                                       'for i in 1 2 3 4 5 6 7 8 9 10; do kill -0 $P 2>/dev/null || break; sleep 1; done; '
-                                       'kill -KILL -- -$P 2>/dev/null; true'), timeout=60)
-                self.sync_logs()
+                self.stop_run()
                 message = f"Timed out after {self.task['timeout_seconds']} seconds."
                 break
             self.update(phase="LAUNCHED", last_poll=utc())
@@ -567,9 +588,20 @@ class Worker:
             if self.stderr_log.exists() else ""
         if message == NONE and exit_code not in (0, None):
             message = f"exit code {exit_code}. stderr tail: {stderr_tail}" if stderr_tail else f"exit code {exit_code}"
+        cancelled = {"outcome": "CANCELLED", "cancel": cancel.ref} if cancel is not None else {}
         self.publish_result(preflight="PASS", exit_code=exit_code, git=self.receipt.get("git", {}),
                             runtime=self.receipt.get("runtime", {}), outputs=outputs,
-                            missing_outputs=missing, message=message, fetched=fetched, fetch_skipped=skipped)
+                            missing_outputs=missing, message=message, fetched=fetched, fetch_skipped=skipped,
+                            **cancelled)
+
+    def stop_run(self) -> None:
+        """Stop the process group of the run: TERM, then KILL after 10 seconds."""
+        q = shlex.quote
+        self.shell(self.docker(self.container,
+                               f'P=$(cat {q(self.run_dir())}/pid); kill -TERM -- -$P 2>/dev/null; '
+                               'for i in 1 2 3 4 5 6 7 8 9 10; do kill -0 $P 2>/dev/null || break; sleep 1; done; '
+                               'kill -KILL -- -$P 2>/dev/null; true'), timeout=60)
+        self.sync_logs()
 
     def fetch_outputs(self, outputs: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[str]]:
         """Copy small required outputs to <data-root>/artifacts/<task-id>/ and check each SHA-256."""

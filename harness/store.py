@@ -286,9 +286,9 @@ class Store:
     def next_id(self, kind: str, fields: dict[str, Any]) -> str:
         if kind == "handoff":
             return f"HANDOFF-{fields['experiment_id']}-R{fields['revision']}"
-        if kind == "result":
+        if kind in ("result", "cancel"):
             task_id, _ = parse_ref(fields["task"])
-            return f"RESULT-{task_id}"
+            return f"{kind.upper()}-{task_id}"
         experiment = fields.get("experiment_id")
         if kind in ("directive", "grant") and experiment == NONE:
             experiment = "GENERAL"
@@ -300,6 +300,11 @@ class Store:
         numbers = [int(m.group(1)) for i in self.ids(kind)
                    if (m := re.fullmatch(re.escape(prefix) + r"(\d+)", i))]
         return f"{prefix}{max(numbers, default=0) + 1:03d}"
+
+    def cancel_of(self, task_id: str) -> Record | None:
+        """The cancel record of a task, or None."""
+        path = self.path_of(f"CANCEL-{task_id}")
+        return self.load(f"CANCEL-{task_id}") if path.exists() else None
 
     def check_references(self, kind: str, fields: dict[str, Any]) -> dict[str, Any]:
         """Check rules that need other records. Return fields that the CLI adds."""
@@ -341,6 +346,12 @@ class Store:
         elif kind == "revoke":
             for ref in fields["revokes"]:
                 resolve(ref, "grant")
+        elif kind == "cancel":
+            task = resolve(fields["task"], "task")
+            if task and self.path_of(f"RESULT-{task.record_id}").exists():
+                errors.append(f"{task.record_id} already has a result. Nothing to cancel")
+            elif task and self.cancel_of(task.record_id):
+                errors.append(f"{task.record_id} already has {self.cancel_of(task.record_id).ref}")
         if errors:
             raise RecordError(errors)
         return extra

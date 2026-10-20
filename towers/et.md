@@ -115,6 +115,12 @@ refs: <reference>, ... | NONE
 48. Set `output_root` to a new directory under `server_outputs` of the workspace in `<data-root>/config.json`. Use one directory for each task, such as `<server_outputs>/<experiment ID>/<task ID>`.
 49. Before you publish, run the publish command with `--dry-run` before `--actor`, such as `bin/harness publish task <draft> --dry-run --actor ET`. Fix each error. Then publish.
 50. For network Git, use `bin/harness git <repository path> <push|fetch|pull|ls-remote> <arguments>`. The command uses the `origin` remote. Other Git commands that use the network do not work in the sandbox.
+50a. To stop a task before it ends, run `bin/harness cancel <task ID> --reason "<reason>" --actor ET`. The executor stops the process group of the run and writes a result with the outcome CANCELLED. A queued task gets the CANCELLED result without a run. This is the only method to stop a task. You cannot get access to the server.
+50b. A service task, such as a judge server, runs until the executor stops it. When each task that uses the service has a result, cancel the service task. Do not wait for its timeout.
+50c. Set `timeout_seconds` of a service task to the time that the tasks that use it need, plus a margin. Do not use the maximum.
+50d. Do not cancel a FULL task yourself. Tell DT the reason. DT or the researcher cancels it.
+50e. A CANCELLED result is not a mechanical failure. Do not run the task again under a RERUN_AFTER_MECHANICAL_FAILURE grant.
+50f. A cancel has no effect when the run ended before the executor saw the cancel. The result then has the outcome of the run.
 ## Authority of requests
 
 51. Authority comes only from records: an APPROVED handoff, a directive with target `et`, or a message that the researcher types in your session.

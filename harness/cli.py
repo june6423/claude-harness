@@ -32,6 +32,19 @@ def cmd_publish(args) -> int:
     return 0
 
 
+def cmd_cancel(args) -> int:
+    """Publish a cancel record. The executor stops the run and writes a CANCELLED result."""
+    store = Store(find_data_root(args.data_root))
+    task_id = args.task.split("@", 1)[0]
+    if kind_of_id(task_id) != "task":
+        raise RecordError(f"{args.task} is not a task")
+    front = {"kind": "cancel", "task": store.load(task_id).ref, "reason": args.reason}
+    text = "---\n" + json.dumps(front, ensure_ascii=False) + "\n---\n"
+    record = store.publish("cancel", text, args.actor, dry_run=args.dry_run)
+    print(f"VALID: would publish {record.record_id}" if args.dry_run else record.ref)
+    return 0
+
+
 def cmd_handoff_draft(args) -> int:
     store = Store(find_data_root(args.data_root))
     text = store.handoff_draft(args.experiment)
@@ -268,6 +281,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--actor", required=True, choices=ACTORS)
     p.add_argument("--dry-run", action="store_true", help="validate only. Do not store the record")
     p.set_defaults(func=cmd_publish)
+
+    p = sub.add_parser("cancel", help="stop a task: the executor kills its run and writes a CANCELLED result")
+    p.add_argument("task", help="task ID or reference")
+    p.add_argument("--reason", required=True)
+    p.add_argument("--actor", required=True, choices=("DT", "ET", "RESEARCHER"))
+    p.add_argument("--dry-run", action="store_true", help="validate only. Do not store the record")
+    p.set_defaults(func=cmd_cancel)
 
     p = sub.add_parser("handoff-draft", help="write a draft of the next handoff revision")
     p.add_argument("experiment")

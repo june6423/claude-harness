@@ -12,13 +12,13 @@ import re
 from typing import Any
 
 NONE = "NONE"
-MARKDOWN_KINDS = ("handoff", "report", "verdict", "directive", "grant", "revoke")
+MARKDOWN_KINDS = ("handoff", "report", "verdict", "directive", "grant", "revoke", "cancel")
 JSON_KINDS = ("task", "result")
 KINDS = MARKDOWN_KINDS + JSON_KINDS
 ID_PREFIX = {kind: kind.upper() for kind in KINDS}
 
 EXPERIMENT_RE = re.compile(r"^[A-Z0-9](?:[A-Z0-9-]*[A-Z0-9])?$")
-RECORD_ID_RE = re.compile(r"^(HANDOFF|REPORT|VERDICT|DIRECTIVE|GRANT|REVOKE|TASK|RESULT)-[A-Z0-9][A-Z0-9-]*$")
+RECORD_ID_RE = re.compile(r"^(HANDOFF|REPORT|VERDICT|DIRECTIVE|GRANT|REVOKE|CANCEL|TASK|RESULT)-[A-Z0-9][A-Z0-9-]*$")
 REF_RE = re.compile(r"^(?P<id>[A-Z]+-[A-Z0-9-]+)@sha256:(?P<sha>[0-9a-f]{64})$")
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 GATE_ID_RE = re.compile(r"^G[0-9]+$")
@@ -33,7 +33,7 @@ MODES = ("gpu-status", "inspect", "run", "allocate-run")
 EXECUTION_MODES = ("run", "allocate-run")
 EXECUTION_CLASSES = (NONE, "VALIDATION", "FULL")
 GPU_POLICIES = ("FIXED", "BEST_EFFORT_JIT")
-OUTCOMES = ("PASS", "FAIL", "REJECTED", "INTERRUPTED")
+OUTCOMES = ("PASS", "FAIL", "REJECTED", "INTERRUPTED", "CANCELLED")
 REPORT_SECTIONS = ("Changes", "Evidence", "Proposals", "Deviations")
 DIRECTIVE_TARGETS = ("et", "vt")
 DIRECTIVE_SCOPES = ("READ_ONLY", "LOCAL_CHANGE", "REMOTE_RUN")
@@ -417,9 +417,12 @@ def validate_result(fields: dict[str, Any], body: str = "") -> list[str]:
     c = Checker(fields)
     c.keys(("kind", "task", "transport", "preflight", "exit_code", "outcome", "git", "runtime",
             "outputs", "missing_outputs", "started_at", "ended_at", "logs", "message"),
-           ("id", "fetched", "fetch_skipped"))
+           ("id", "fetched", "fetch_skipped", "cancel"))
     _common(c, "result")
     c.ref("task")
+    c.ref("cancel")
+    if ("cancel" in fields) != (fields.get("outcome") == "CANCELLED"):
+        c.error("a CANCELLED result needs 'cancel', and only a CANCELLED result has 'cancel'")
     c.choice("transport", ("OK", "ERROR"))
     c.choice("preflight", ("PASS", "FAIL", "NOT_RUN"))
     c.choice("outcome", OUTCOMES)
@@ -562,7 +565,17 @@ def validate_revoke(fields: dict[str, Any], body: str) -> list[str]:
     return c.errors
 
 
+def validate_cancel(fields: dict[str, Any], body: str) -> list[str]:
+    c = Checker(fields)
+    c.keys(("kind", "task", "reason"), ("id",))
+    _common(c, "cancel")
+    c.ref("task")
+    c.text("reason")
+    return c.errors
+
+
 VALIDATORS = {
+    "cancel": validate_cancel,
     "grant": validate_grant,
     "revoke": validate_revoke,
     "directive": validate_directive,

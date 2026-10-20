@@ -42,7 +42,8 @@
       "Bash(bin/harness grants)",
       "Bash(bin/harness grants *)",
       "Bash(bin/harness publish grant * --actor DT)",
-      "Bash(bin/harness publish revoke * --actor DT)"
+      "Bash(bin/harness publish revoke * --actor DT)",
+      "Bash(bin/harness cancel * --actor DT)"
     ],
     "deny": [
       "Edit(/{{HARNESS}}/**)",

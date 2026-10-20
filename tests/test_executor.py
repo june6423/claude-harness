@@ -1,15 +1,20 @@
 """Executor tests with the local transport and a fake docker (tests/fakebin/docker)."""
 
+import io
 import json
 import os
 import subprocess
+import sys
 import tempfile
+import threading
 import time
 import unittest
 from pathlib import Path
 from unittest import mock
 
-from harness.executor import Executor, Worker, read_json
+from harness.cli import main
+from harness.executor import Executor, Paths, Worker, read_json
+from harness.records import RecordError
 from harness.store import Store, init_data_root
 
 FAKEBIN = Path(__file__).parent / "fakebin"
@@ -204,6 +209,72 @@ class ExecutorTest(unittest.TestCase):
         result = self.run_task("scripts/slow.sh", timeout_seconds=1)
         self.assertEqual(result["outcome"], "FAIL")
         self.assertIn("Timed out", result["message"])
+
+    def cancel(self, task, reason="The judge server is no longer needed.", actor="ET", code=0):
+        out, err = io.StringIO(), io.StringIO()
+        with mock.patch.object(sys, "stdout", out), mock.patch.object(sys, "stderr", err):
+            self.assertEqual(main(["--data-root", str(self.root), "cancel", task.record_id,
+                                   "--reason", reason, "--actor", actor]), code, err.getvalue())
+        return out.getvalue().strip() if code == 0 else err.getvalue()
+
+    def test_cancel_stops_a_running_task(self):
+        task = self.task("scripts/slow.sh", timeout_seconds=600)
+        worker = threading.Thread(target=Worker(self.store, task.record_id).run)
+        worker.start()
+        receipt = Paths(self.store).receipt(task.record_id)
+        deadline = time.time() + 20
+        while time.time() < deadline and read_json(receipt).get("phase") != "LAUNCHED":
+            time.sleep(0.1)
+        cancel = self.cancel(task)
+        self.assertTrue(cancel.startswith(f"CANCEL-{task.record_id}@sha256:"))
+        started = time.time()
+        worker.join(30)
+        self.assertLess(time.time() - started, 20)
+        result = self.store.load(f"RESULT-{task.record_id}").fields
+        self.assertEqual((result["outcome"], result["cancel"]), ("CANCELLED", cancel))
+        self.assertEqual(result["preflight"], "PASS")
+        self.assertIn("The judge server is no longer needed.", result["message"])
+        pid = int((self.out / "case" / ".harness" / task.record_id / "pid").read_text())
+        time.sleep(0.5)
+        with self.assertRaises(ProcessLookupError):
+            os.kill(pid, 0)
+        self.assertEqual(self.store.verify(), [])
+
+    def test_cancel_before_launch(self):
+        task = self.task("scripts/ok.sh")
+        cancel = self.cancel(task, actor="RESEARCHER")
+        Worker(self.store, task.record_id).run()
+        result = self.store.load(f"RESULT-{task.record_id}").fields
+        self.assertEqual((result["outcome"], result["preflight"], result["cancel"]), ("CANCELLED", "NOT_RUN", cancel))
+        self.assertFalse((self.out / "case").exists())  # nothing ran
+        self.assertIn("already has a result", self.cancel(task, code=2))
+
+    def test_cancel_refuses_a_second_cancel_and_a_finished_task(self):
+        task = self.task("scripts/ok.sh", name="a")
+        self.cancel(task)
+        with self.assertRaises(RecordError):
+            self.store.publish("cancel", "---\n" + json.dumps(
+                {"kind": "cancel", "task": task.ref, "reason": "again"}) + "\n---\n", "ET")
+        done = self.task("scripts/ok.sh", name="b")
+        Worker(self.store, done.record_id).run()
+        self.assertIn("already has a result", self.cancel(done, code=2))
+
+    def test_daemon_does_not_hold_a_cancelled_task_behind_a_busy_slot(self):
+        running = self.task("scripts/slow.sh", name="a", timeout_seconds=600)
+        queued = self.task("scripts/ok.sh", name="b")
+        executor = Executor(self.store)
+        self.assertEqual(executor.step(), [running.record_id])
+        self.assertEqual(executor.step(), [])  # the slot is busy
+        self.cancel(queued)
+        self.assertEqual(executor.step(), [queued.record_id])
+        self.cancel(running)
+        deadline = time.time() + 30
+        while time.time() < deadline and not all(
+                self.store.path_of(f"RESULT-{t.record_id}").exists() for t in (running, queued)):
+            executor.step()
+            time.sleep(0.3)
+        for task in (running, queued):
+            self.assertEqual(self.store.load(f"RESULT-{task.record_id}").fields["outcome"], "CANCELLED")
 
     def test_unknown_container_is_rejected(self):
         result = self.run_task(runtime={"container": "other"})

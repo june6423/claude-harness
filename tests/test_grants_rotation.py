@@ -170,5 +170,56 @@ class KeepAliveTest(unittest.TestCase):
             respawn.assert_called_once_with("a")
 
 
+class ForkTest(unittest.TestCase):
+    """DT2 is a discussion-only copy of DT (researcher decision 2026-10-20)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = init_data_root(Path(self.tmp.name) / "data", write_pointer=False)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_fork_copies_the_worklog_and_starts_with_the_fork_prompt(self):
+        from harness import tower
+        (self.root / "worklog" / "dt.md").write_text("## Handover\nNext: R4.\n")
+        (self.root / "worklog" / "dt-summary.md").write_text("Summary.\n")
+        with mock.patch.object(tower, "named", return_value=[]), \
+                mock.patch.object(tower, "start", return_value={"sessionId": "f"}) as start:
+            self.assertEqual(tower.fork("dt2", self.root), {"sessionId": "f"})
+        self.assertIn("Next: R4.", (self.root / "worklog" / "dt2.md").read_text())
+        self.assertIn("Summary.", (self.root / "worklog" / "dt2-summary.md").read_text())
+        prompt = start.call_args.args[3]
+        self.assertIn("discussion-only copy of DT", prompt)
+        self.assertIn("dt2.md", prompt)
+        with mock.patch.object(tower, "named", return_value=[{"id": "x"}]):
+            with self.assertRaises(RecordError):
+                tower.fork("dt2", self.root)  # a DT2 session exists and --replace is not given
+        with self.assertRaises(RecordError):
+            tower.fork("et", self.root)
+
+    def test_fork_rules_and_model(self):
+        from harness import tower
+        rules = tower.render_rules("dt2", self.root).read_text()
+        self.assertTrue(rules.startswith("# Discussion Tower (DT)"))
+        self.assertIn("# DT2 rules", rules)
+        self.assertEqual(tower.render_rules("dt", self.root).name, "dt.md")
+        (self.root / "config.json").write_text(json.dumps({"towers": {"models": {"dt": "fable"}}}))
+        self.assertEqual(tower.tower_model("dt2", self.root), "fable")  # follows DT unless set
+        self.assertNotIn("background wait", tower.rotation_prompt("dt2", self.root))
+
+    def test_fork_cannot_publish_or_message(self):
+        from harness import tower
+        settings = json.loads(tower.render_settings("dt2", self.root).read_text())
+        allow, deny = settings["permissions"]["allow"], settings["permissions"]["deny"]
+        self.assertIn("SendMessage", deny)
+        self.assertIn("Bash(bin/harness publish *)", deny)
+        self.assertIn(f"Edit(/{self.root}/state/**)", deny)
+        self.assertIn(f"Edit(/{self.root}/worklog/dt.md)", deny)
+        self.assertFalse([rule for rule in allow if "publish" in rule or "PROJECT_STATE" in rule])
+        self.assertIn(f"Edit(/{self.root}/worklog/dt2.md)", allow)
+        self.assertIn("Bash(bin/harness handover dt2 *)", allow)
+
+
 if __name__ == "__main__":
     unittest.main()

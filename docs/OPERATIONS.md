@@ -63,6 +63,16 @@ Tower의 맥락이 600000 토큰(`limits.context_rotate_tokens`)을 넘으면 �
 
 연구자가 `claude attach`로 그 Tower에 들어가 있었다면 연결이 끊기니, 다시 attach하면 됩니다.
 
+## 2.4 DT 맥락을 복제한 토론 세션 (DT2)
+
+DT와 같은 맥락에서 다른 방향을 따로 토론하고 싶을 때 씁니다.
+
+1. DT에게 handover를 쓰게 합니다(2.3과 같은 과정). daemon이 DT를 새 세션으로 다시 시작합니다.
+2. `bin/harness tower fork dt2`를 실행합니다. DT의 작업 로그가 `worklog/dt2*.md`로 복사되고, DT2가 같은 인계 기록에서 시작합니다.
+3. `claude attach dt2`로 들어가 토론합니다.
+
+DT2는 **토론 전용**입니다. record를 게시하지 못하고, ET·VT에 메시지를 보내지 못하며, PROJECT_STATE.md도 고치지 못합니다. 결정한 내용은 DT2가 `runtime/drafts/dt2/`에 초안으로 쓰고, 연구자가 그 경로를 DT에게 넘겨 게시하게 합니다. 끝낼 때는 `bin/harness tower stop dt2`를 실행합니다. 다시 복제하려면 `bin/harness tower fork dt2 --replace`를 씁니다.
+
 ## 3. 진행 확인
 
 ```bash

@@ -10,7 +10,10 @@ from pathlib import Path
 from .records import RecordError
 from .store import REPO_ROOT
 
-TOWERS = ("dt", "et", "vt")
+TOWERS = ("dt", "et", "vt", "dt2")
+# A fork tower starts from the handover of its source tower and adds its own rules to the source rules.
+# Researcher decision (2026-10-20): DT2 is a discussion-only copy of DT.
+FORKS = {"dt2": "dt"}
 # Researcher decision (2026-10-10): every model call is Opus 5.5 or stronger.
 MODEL_IDS = {"opus": "claude-opus-5-5", "fable": "claude-fable-5-1"}
 DEFAULT_TOWER_MODEL = "opus"
@@ -24,7 +27,8 @@ def tower_config(data_root: Path) -> dict:
 
 
 def tower_model(tower: str, data_root: Path) -> str:
-    return (tower_config(data_root).get("models") or {}).get(tower, DEFAULT_TOWER_MODEL)
+    models = tower_config(data_root).get("models") or {}
+    return models.get(tower) or models.get(FORKS.get(tower, tower), DEFAULT_TOWER_MODEL)
 # Files that the Claude Code sandbox covers in the working directory (list from Claude Code 2.1.294).
 # bubblewrap fails when it must create one of them itself and part of the directory is read-only.
 SANDBOX_PLACEHOLDERS = (".gitconfig", ".gitmodules", ".bashrc", ".bash_profile", ".zshrc", ".zprofile",
@@ -82,6 +86,19 @@ def render_settings(tower: str, data_root: Path, repo: Path = REPO_ROOT) -> Path
     return target
 
 
+def render_rules(tower: str, data_root: Path, repo: Path = REPO_ROOT) -> Path:
+    """The rules file of a tower. A fork tower gets the rules of its source tower, then its own rules."""
+    own = repo / "towers" / f"{tower}.md"
+    if tower not in FORKS:
+        return own
+    source = repo / "towers" / f"{FORKS[tower]}.md"
+    target = data_root / "runtime" / "rules" / f"{tower}.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(source.read_text(encoding="utf-8").rstrip("\n") + "\n\n" + own.read_text(encoding="utf-8"),
+                      encoding="utf-8")
+    return target
+
+
 def transcript_dir(repo: Path = REPO_ROOT) -> Path:
     return Path.home() / ".claude" / "projects" / str(repo).replace("/", "-").replace(".", "-")
 
@@ -104,7 +121,7 @@ def start_command(tower: str, data_root: Path, model: str | None = None, name: s
             raise RecordError(f"missing file: {path}")
     settings = render_settings(tower, data_root, repo)
     command = ["claude", "--bg", "--agent", tower, "--name", name or tower,
-               "--append-system-prompt-file", str(repo / "towers" / f"{tower}.md"),
+               "--append-system-prompt-file", str(render_rules(tower, data_root, repo)),
                "--settings", str(settings)]
     if model:
         command += ["--model", model]
@@ -135,8 +152,39 @@ def rotation_prompt(tower: str, data_root: Path) -> str:
             f"1. Read {worklog}/{tower}-summary.md if it exists.\n"
             f"2. Read the last Handover section in {worklog}/{tower}.md.\n"
             "3. Run bin/harness status and bin/harness messages --last 20.\n"
-            "4. Continue the open work. Start again each background wait for a task that has no result.\n"
-            "5. Tell the researcher in Korean that a new session started and what you continue.")
+            + ("4. Continue the open discussion.\n" if tower in FORKS else
+               "4. Continue the open work. Start again each background wait for a task that has no result.\n")
+            + "5. Tell the researcher in Korean that a new session started and what you continue.")
+
+
+def fork_prompt(tower: str, data_root: Path) -> str:
+    worklog = data_root / "worklog"
+    return (f"This is a new {tower.upper()} session. It is a discussion-only copy of {FORKS[tower].upper()}. "
+            f"The harness copied the {FORKS[tower].upper()} worklog into your worklog.\n"
+            f"1. Read {worklog}/{tower}-summary.md if it exists.\n"
+            f"2. Read the last Handover section in {worklog}/{tower}.md.\n"
+            "3. Run bin/harness status and bin/harness messages --last 20.\n"
+            "4. Do not continue the open work of the source tower. Wait for the researcher.\n"
+            f"5. Tell the researcher in Korean that {tower.upper()} started, what context you have, "
+            "and that you are discussion-only.")
+
+
+def fork(tower: str, data_root: Path, model: str | None = None, replace: bool = False) -> dict:
+    """Copy the worklog of the source tower to the fork tower, then start the fork tower."""
+    if tower not in FORKS:
+        raise RecordError(f"tower must be one of {', '.join(FORKS)}")
+    if not replace and named(tower):
+        raise RecordError(f"a session named {tower!r} exists. Use --replace to stop it and fork again")
+    source = FORKS[tower]
+    worklog = data_root / "worklog"
+    stamp = time.strftime("%Y-%m-%dT%H:%MZ", time.gmtime())
+    for suffix in ("", "-summary"):
+        origin = worklog / f"{source}{suffix}.md"
+        if origin.exists():
+            text = origin.read_text(encoding="utf-8")
+            note = f"<!-- Copied from worklog/{source}{suffix}.md at {stamp} for the fork {tower}. -->\n"
+            (worklog / f"{tower}{suffix}.md").write_text(note + text, encoding="utf-8")
+    return start(tower, data_root, model, fork_prompt(tower, data_root), replace=replace)
 
 
 def sessions(include_finished: bool = False) -> list[dict]:

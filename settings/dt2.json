@@ -1,0 +1,134 @@
+{
+  "crossSessionInbound": "accept",
+  "permissions": {
+    "defaultMode": "dontAsk",
+    "additionalDirectories": [
+      "{{DATA_ROOT}}"
+    ],
+    "blockReadsOutsideWorkingDirectories": true,
+    "allow": [
+      "ListAgents",
+      "Skill",
+      "ToolSearch",
+      "Bash(bin/harness root)",
+      "Bash(bin/harness show *)",
+      "Bash(bin/harness list)",
+      "Bash(bin/harness list *)",
+      "Bash(bin/harness messages)",
+      "Bash(bin/harness messages *)",
+      "Bash(bin/harness verify)",
+      "Edit(/{{DATA_ROOT}}/runtime/drafts/dt2/**)",
+      "WebSearch",
+      "WebFetch",
+      "Bash(bin/harness handoff-draft *)",
+      "Bash(bin/harness status)",
+      "Bash(bin/harness status *)",
+      "Bash(git -C * log*)",
+      "Bash(git -C * show*)",
+      "Bash(git -C * diff*)",
+      "Bash(git -C * status*)",
+      "Bash(git -C * ls-tree*)",
+      "Bash(git -C * rev-parse*)",
+      "Bash(git -C * branch*)",
+      "Bash(git -C * grep*)",
+      "Edit(/{{DATA_ROOT}}/worklog/dt2.md)",
+      "Edit(/{{DATA_ROOT}}/worklog/dt2-summary.md)",
+      "Bash(bin/harness handover dt2 *)",
+      "Bash(bin/harness grants)",
+      "Bash(bin/harness grants *)"
+    ],
+    "deny": [
+      "Edit(/{{HARNESS}}/**)",
+      "Bash(bin/harness executor *)",
+      "Bash(bin/harness tower *)",
+      "Bash(bin/harness init *)",
+      "Bash(bin/harness --data-root *)",
+      "Read(/{{DATA_ROOT}}/runtime/logs/**)",
+      "Bash(bin/harness git *)",
+      "Edit(/{{DATA_ROOT}}/workspace/**)",
+      "SendMessage",
+      "Bash(bin/harness publish *)",
+      "Bash(bin/harness message *)",
+      "Edit(/{{DATA_ROOT}}/state/**)",
+      "Edit(/{{DATA_ROOT}}/records/**)",
+      "Edit(/{{DATA_ROOT}}/worklog/dt.md)",
+      "Edit(/{{DATA_ROOT}}/worklog/dt-summary.md)"
+    ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "allowUnsandboxedCommands": false,
+    "excludedCommands": [
+      "bin/harness *",
+      "./bin/harness *",
+      "{{HARNESS}}/bin/harness *"
+    ],
+    "filesystem": {
+      "allowWrite": [
+        "{{DATA_ROOT}}/runtime/drafts/dt2"
+      ],
+      "denyWrite": [
+        "{{HARNESS}}"
+      ],
+      "denyRead": [
+        "{{DATA_ROOT}}/runtime/logs"
+      ]
+    },
+    "network": {
+      "allowedDomains": [],
+      "strictAllowlist": true
+    }
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "SendMessage",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/message_ledger.py\" --tower dt2"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/dt_guard.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/dt_guard.py\""
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/message_ledger.py\" --tower dt2"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/context_guard.py\" --tower dt2"
+          }
+        ]
+      }
+    ]
+  }
+}

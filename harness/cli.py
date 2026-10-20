@@ -234,6 +234,9 @@ def cmd_tower(args) -> int:
         session = tower.start(args.name, find_data_root(args.data_root), args.model, args.prompt,
                               replace=args.action == "restart", resume=args.resume)
         print(json.dumps(session, ensure_ascii=False))
+    elif args.action == "fork":
+        session = tower.fork(args.name, find_data_root(args.data_root), args.model, replace=args.replace)
+        print(json.dumps(session, ensure_ascii=False))
     elif args.action == "stop":
         removed = tower.stop(args.name)
         print(f"stopped and removed: {', '.join(removed) or 'none'}")
@@ -329,18 +332,19 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_grants)
 
     p = sub.add_parser("tower", help="start or list tower sessions")
-    p.add_argument("action", choices=("start", "restart", "stop", "status", "command"))
+    p.add_argument("action", choices=("start", "restart", "stop", "status", "command", "fork"))
     p.add_argument("name", nargs="?", choices=tower.TOWERS)
     p.add_argument("--model", help="model for the session, such as sonnet or opus")
     p.add_argument("--prompt", help="first prompt for the session")
     p.add_argument("--resume", help="continue an earlier tower conversation (session ID or its prefix)")
+    p.add_argument("--replace", action="store_true", help="fork: stop the existing fork session first")
     p.set_defaults(func=cmd_tower)
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    if args.command == "tower" and args.action in ("start", "restart", "stop", "command") and not args.name:
+    if args.command == "tower" and args.action in ("start", "restart", "stop", "command", "fork") and not args.name:
         print(f"harness: tower {args.action} needs a tower name", file=sys.stderr)
         return 2
     try:

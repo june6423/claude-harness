@@ -637,6 +637,14 @@ Reason for D18: VT is the gate for FULL runs and for result acceptance, so a mis
 4. `claude stop` also gives state done and no process, so the daemon revives such a session. To stop a tower and keep it stopped, use `harness tower stop`, which also removes the session. `config.json` `towers.keep_alive: false` turns the revival off.
 5. Tower rule: when SendMessage reports a tower as not reachable, wait one minute and send again. If that fails, tell the researcher.
 
+## 21. Discussion fork DT2 (2026-10-20)
+
+1. The researcher wants a second DT conversation with the same context, like `/fork`. A tower session restarts from scripts, so `/fork` is not available. The researcher decided that the copy is discussion-only.
+2. `harness tower fork dt2` copies `worklog/dt.md` and `worklog/dt-summary.md` to `worklog/dt2.md` and `worklog/dt2-summary.md`, then starts the session `dt2` with a fork prompt. Run it after a DT handover, so that both sessions start from the same handover.
+3. The rules of DT2 are `towers/dt.md` followed by `towers/dt2.md`. The harness writes the combined file to `<data-root>/runtime/rules/dt2.md`. The DT2 rules have priority.
+4. `settings/dt2.json` denies `SendMessage`, each `bin/harness publish` command, and each edit in `state/`, `records/`, and the DT worklog. DT2 writes drafts in `runtime/drafts/dt2/`. The researcher gives an accepted draft to DT, and DT publishes it.
+5. DT2 uses the DT model unless `towers.models.dt2` is set. The daemon rotates and revives DT2 as it does the other towers. To end DT2, run `harness tower stop dt2`.
+
 ## 9. Open decisions
 
 None. The researcher accepted O1 to O3 as D9 to D11.

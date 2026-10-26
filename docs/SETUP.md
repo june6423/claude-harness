@@ -127,6 +127,18 @@ claude attach dt                                      # DT와 실험 기획 시�
 
 executor daemon은 원격 task 실행, Tower 세션 교체, 멈춘 Tower 되살리기를 맡습니다. **계속 켜 두어야 합니다.**
 
+위처럼 `nohup`으로 띄운 daemon은 컴퓨터를 다시 시작하면 사라집니다(2026-10-26에 커널 업데이트 재부팅으로 daemon이 멈춰 DT2 세션 교체가 되지 않았습니다). 재부팅 뒤에도 자동으로 시작되게 하려면 systemd user service로 등록합니다. 파일 머리말에 설치 명령이 있습니다.
+
+```bash
+mkdir -p ~/.config/systemd/user
+cp ~/harness/ops/systemd/harness-executor.service ~/.config/systemd/user/
+systemctl --user daemon-reload && systemctl --user enable --now harness-executor
+loginctl enable-linger $USER          # 로그인 전에도 부팅 시 시작
+systemctl --user status harness-executor
+```
+
+이 방식을 쓰면 `nohup`으로 띄운 daemon은 먼저 종료해야 합니다(둘 다 있으면 두 번째가 lock 때문에 바로 끝납니다). harness를 업데이트한 뒤에는 `systemctl --user restart harness-executor`로 다시 시작합니다.
+
 ## 9. 설치 확인
 
 | 확인 | 명령 | 기대 결과 |

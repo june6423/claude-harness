@@ -1,0 +1,26 @@
+# Executor daemon of the harness as a systemd user service, so that it starts again after a reboot.
+# Install (once, as the user that runs the towers):
+#   mkdir -p ~/.config/systemd/user
+#   cp ~/harness/ops/systemd/harness-executor.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now harness-executor
+#   loginctl enable-linger $USER      # start at boot, before a login
+# Check:    systemctl --user status harness-executor
+# Restart:  systemctl --user restart harness-executor   (after a harness update)
+# Edit the three paths below when the harness or the data root is elsewhere.
+[Unit]
+Description=harness executor daemon (remote tasks, tower rotation, tower keep-alive)
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/harness
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=%h/harness/bin/harness executor watch
+Restart=always
+RestartSec=30
+StandardOutput=append:%h/harness-data/faculty-opsd/runtime/logs/executor-daemon.log
+StandardError=inherit
+
+[Install]
+WantedBy=default.target

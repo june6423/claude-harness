@@ -658,6 +658,13 @@ Reason for D18: VT is the gate for FULL runs and for result acceptance, so a mis
 6. CANCELLED is not a mechanical failure, so RERUN_AFTER_MECHANICAL_FAILURE does not cover a rerun. ET does not cancel a FULL task itself; DT asks the researcher before it cancels a FULL task.
 7. The journal gets a CANCELLED event with the cancel reference and whether the run had launched.
 
+## 23. Remote Control for towers (2026-10-26)
+
+1. The researcher wants to reach DT, DT2, and the harness session from the Claude mobile app (Remote Control). A Remote Control link is bound to one session ID (docs: code.claude.com/docs/en/remote-control). A tower gets a new session at each rotation, so a link does not survive a rotation.
+2. Test on 2026-10-26 (Claude Code 2.1.310): `claude --bg --remote-control <name> ...` works. The background session reports "/remote-control is active" with its link, and `~/.claude/jobs/<id>/state.json` holds `bridgeSessionId: cse_<id>`; the link is `https://claude.ai/code/session_<id>`. The job keeps `--remote-control` in `respawnFlags`, so a keep-alive respawn (section 20) keeps Remote Control.
+3. `config.json` `towers.remote_control` is `true` (every tower) or a list of tower names. `harness tower start`, `restart`, `fork`, and the rotation in the daemon then pass `--remote-control <tower>`. The title in claude.ai/code is the tower name. After a rotation the researcher opens the newest session with that title; the daemon log and the TOWER_ROTATED journal event give the link. `harness tower status` prints the link of each live tower session.
+4. The link changes at each rotation. Claude Code has no mechanism that gives a new session the link of an old one, except `--resume` of the same conversation. A rotation starts a new conversation on purpose (section 18), so the harness accepts the new link.
+
 ## 9. Open decisions
 
 None. The researcher accepted O1 to O3 as D9 to D11.

@@ -73,6 +73,14 @@ DT와 같은 맥락에서 다른 방향을 따로 토론하고 싶을 때 씁니
 
 DT2는 **토론 전용**입니다. record를 게시하지 못하고, ET·VT에 메시지를 보내지 못하며, PROJECT_STATE.md도 고치지 못합니다. 결정한 내용은 DT2가 `runtime/drafts/dt2/`에 초안으로 쓰고, 연구자가 그 경로를 DT에게 넘겨 게시하게 합니다. 끝낼 때는 `bin/harness tower stop dt2`를 실행합니다. 다시 복제하려면 `bin/harness tower fork dt2 --replace`를 씁니다.
 
+## 2.5 휴대폰에서 Tower 보기 (Remote Control)
+
+`config.json`의 `towers.remote_control`에 Tower 이름을 적으면(예: `["dt", "dt2"]`, 전부는 `true`) 그 Tower는 Remote Control이 켜진 채 시작됩니다. claude.ai/code나 Claude 앱의 세션 목록에서 Tower 이름(`dt`, `dt2`)으로 보입니다.
+
+- 링크는 세션마다 다릅니다. 세션 교체(2.3) 뒤에는 목록에서 같은 이름의 **가장 새 세션**을 엽니다. 링크는 `bin/harness tower status`의 `remote_control` 항목과 executor daemon 로그에도 찍힙니다.
+- 멈춘 Tower를 daemon이 되살릴 때는 Remote Control도 함께 돌아옵니다.
+- 설정을 바꾼 뒤에는 그 Tower를 `bin/harness tower restart <tower> --resume <세션 ID 앞부분>`으로 다시 시작해야 켜집니다. attach 중이던 연결은 끊깁니다.
+
 ## 3. 진행 확인
 
 ```bash

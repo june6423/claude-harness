@@ -26,6 +26,12 @@ def tower_config(data_root: Path) -> dict:
     return config.get("towers") or {}
 
 
+def remote_control(tower: str, data_root: Path) -> bool:
+    """config.json towers.remote_control: true for every tower, or a list of tower names."""
+    value = tower_config(data_root).get("remote_control", False)
+    return value is True or (isinstance(value, list) and tower in value)
+
+
 def tower_model(tower: str, data_root: Path) -> str:
     models = tower_config(data_root).get("models") or {}
     return models.get(tower) or models.get(FORKS.get(tower, tower), DEFAULT_TOWER_MODEL)
@@ -123,12 +129,32 @@ def start_command(tower: str, data_root: Path, model: str | None = None, name: s
     command = ["claude", "--bg", "--agent", tower, "--name", name or tower,
                "--append-system-prompt-file", str(render_rules(tower, data_root, repo)),
                "--settings", str(settings)]
+    if remote_control(tower, data_root):
+        # Remote Control: the session is reachable from claude.ai/code and the mobile app. The link
+        # is bound to the session ID, so each new session gets a new link (see remote_url).
+        command += ["--remote-control", name or tower]
     if model:
         command += ["--model", model]
     if resume:
         # Continue the old conversation. Snapshot off: each request uses the current tower rules.
         command += ["--resume", resolve_session(resume, repo), "--system-prompt-snapshot", "off"]
     return command
+
+
+JOBS_DIR = Path.home() / ".claude" / "jobs"
+
+
+def remote_url(session: dict, jobs_dir: Path = JOBS_DIR) -> str | None:
+    """The claude.ai/code link of a background session with Remote Control, from its job state
+    (undocumented file ~/.claude/jobs/<id>/state.json, key bridgeSessionId 'cse_...')."""
+    path = jobs_dir / str(session.get("id", "")) / "state.json"
+    try:
+        bridge = json.loads(path.read_text(encoding="utf-8")).get("bridgeSessionId")
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(bridge, str) or not bridge.startswith("cse_"):
+        return None
+    return "https://claude.ai/code/session_" + bridge[len("cse_"):]
 
 
 def last_model(session_id: str, repo: Path = REPO_ROOT) -> str | None:

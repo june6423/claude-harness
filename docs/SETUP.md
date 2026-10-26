@@ -81,6 +81,7 @@ ssh <ssh_host> 'docker exec <container> test -d /workspace/harness/<repo> && ech
 |---|---|
 | `towers.models` | Tower별 모델. subagent도 같은 모델로 고정되고, Claude Code 내부 보조 호출은 `background_model`을 씁니다 |
 | `towers.sandbox` | 2단계를 했으면 `true` |
+| `towers.remote_control` | Claude 앱에서 볼 Tower 이름 목록(예: `["dt", "dt2"]`) 또는 `true`. 빼면 끔 |
 | `limits` | handoff revision마다의 run·FULL task 수, recovery 횟수, 메시지 빈도, 세션 교체 기준. 빼면 기본값을 씁니다 |
 | `workspaces.<key>.remote` | 로컬 workspace의 `origin` 주소와 정확히 같아야 합니다. `bin/harness git`이 이것을 확인합니다 |
 | `workspaces.<key>.server_outputs` | 컨테이너 안에서 실행 결과를 쓸 폴더 |

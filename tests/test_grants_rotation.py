@@ -208,6 +208,24 @@ class ForkTest(unittest.TestCase):
         self.assertEqual(tower.tower_model("dt2", self.root), "fable")  # follows DT unless set
         self.assertNotIn("background wait", tower.rotation_prompt("dt2", self.root))
 
+    def test_remote_control_flag_and_link(self):
+        from harness import tower
+        self.assertNotIn("--remote-control", tower.start_command("dt", self.root))
+        (self.root / "config.json").write_text(json.dumps({"towers": {"remote_control": ["dt", "dt2"]}}))
+        command = tower.start_command("dt2", self.root)
+        self.assertEqual(command[command.index("--remote-control") + 1], "dt2")
+        self.assertNotIn("--remote-control", tower.start_command("et", self.root))
+        (self.root / "config.json").write_text(json.dumps({"towers": {"remote_control": True}}))
+        self.assertIn("--remote-control", tower.start_command("et", self.root))
+        jobs = self.root / "jobs"
+        (jobs / "ab12").mkdir(parents=True)
+        (jobs / "ab12" / "state.json").write_text(json.dumps({"bridgeSessionId": "cse_01ABC"}))
+        (jobs / "cd34").mkdir()
+        (jobs / "cd34" / "state.json").write_text(json.dumps({"name": "et"}))
+        self.assertEqual(tower.remote_url({"id": "ab12"}, jobs), "https://claude.ai/code/session_01ABC")
+        self.assertIsNone(tower.remote_url({"id": "cd34"}, jobs))
+        self.assertIsNone(tower.remote_url({"id": "none"}, jobs))
+
     def test_fork_cannot_publish_or_message(self):
         from harness import tower
         settings = json.loads(tower.render_settings("dt2", self.root).read_text())

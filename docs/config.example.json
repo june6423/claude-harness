@@ -2,8 +2,16 @@
   "project": "<project>",
   "towers": {
     "sandbox": true,
-    "models": {"dt": "fable", "et": "opus", "vt": "fable"},
-    "background_model": "claude-opus-5-5"
+    "models": {
+      "dt": "fable",
+      "et": "opus",
+      "vt": "fable"
+    },
+    "background_model": "claude-opus-5-5",
+    "remote_control": [
+      "dt",
+      "dt2"
+    ]
   },
   "limits": {
     "run_tasks_per_handoff": 20,
@@ -12,14 +20,18 @@
     "messages_per_peer_per_10_minutes": 10,
     "context_rotate_tokens": 600000
   },
-  "executor": {"poll_seconds": 10},
+  "executor": {
+    "poll_seconds": 10
+  },
   "workspaces": {
     "<workspace key>": {
       "path": "workspace/<repo directory>",
       "remote": "https://github.com/<owner>/<repo>.git",
       "default_branch": "main",
       "experiment_branch_prefix": "exp/",
-      "server_repos": ["<server repo key>"],
+      "server_repos": [
+        "<server repo key>"
+      ],
       "server_outputs": "/workspace/harness/outputs"
     }
   },
@@ -37,9 +49,14 @@
         "<server repo key>": {
           "path": "/home/<user>/harness/<repo>",
           "containers": {
-            "<container name>": {"workdir": "/workspace/harness/<repo>"},
-            "<name for a direct runtime>": {"workdir": "<same path as repos.<key>.path>", "runtime": "direct",
-                                            "image": "<instance template, such as nvidia/cuda:12.8.1-devel-ubuntu22.04>"}
+            "<container name>": {
+              "workdir": "/workspace/harness/<repo>"
+            },
+            "<name for a direct runtime>": {
+              "workdir": "<same path as repos.<key>.path>",
+              "runtime": "direct",
+              "image": "<instance template, such as nvidia/cuda:12.8.1-devel-ubuntu22.04>"
+            }
           }
         }
       }

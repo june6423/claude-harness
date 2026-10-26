@@ -258,7 +258,7 @@ def cmd_tower(args) -> int:
     else:
         for session in tower.sessions():
             if session.get("name") in tower.TOWERS:
-                print(json.dumps(session, ensure_ascii=False))
+                print(json.dumps({**session, "remote_control": tower.remote_url(session)}, ensure_ascii=False))
     return 0
 
 

@@ -173,9 +173,13 @@ class Executor:
                 new = towers.start(name, self.store.root, model, towers.rotation_prompt(name, self.store.root),
                                    replace=True)
                 request.unlink()
+                link = towers.remote_url(new)
                 journal.append(self.store.journal_path, {
                     "actor": "EXECUTOR", "event": "TOWER_ROTATED", "tower": name,
-                    "old_sessions": [s.get("sessionId") for s in sessions], "new_session": new.get("sessionId")})
+                    "old_sessions": [s.get("sessionId") for s in sessions], "new_session": new.get("sessionId"),
+                    "remote_control": link})
+                if link:
+                    print(f"{utc()} {name} remote control: {link}", flush=True)
                 rotated.append(name)
             except Exception as error:  # keep the request; the next step tries again
                 print(f"{utc()} tower rotation for {name} failed: {error}", flush=True)

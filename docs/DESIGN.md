@@ -665,6 +665,14 @@ Reason for D18: VT is the gate for FULL runs and for result acceptance, so a mis
 3. `config.json` `towers.remote_control` is `true` (every tower) or a list of tower names. `harness tower start`, `restart`, `fork`, and the rotation in the daemon then pass `--remote-control <tower>`. The title in claude.ai/code is the tower name. After a rotation the researcher opens the newest session with that title; the daemon log and the TOWER_ROTATED journal event give the link. `harness tower status` prints the link of each live tower session.
 4. The link changes at each rotation. Claude Code has no mechanism that gives a new session the link of an old one, except `--resume` of the same conversation. A rotation starts a new conversation on purpose (section 18), so the harness accepts the new link.
 
+## 24. A second tower cycle with a name suffix (2026-10-27)
+
+1. The researcher wants a separate cycle `dt_tmp`, `et_tmp`, `vt_tmp` with the same structure as the main cycle, for a temporary line of work. The two cycles must not talk to each other.
+2. Decision: a second cycle is a second data root. It has its own records, worklogs, PROJECT_STATE, config, journal, message ledger, executor daemon, and workspace clones. The harness repository is shared. `config.json` `towers.name_suffix` (here `_tmp`) gives the session names: the tower name stays `dt` inside the harness (rules files, hooks, record actors, `harness tower start dt`), and the Claude Code session is `dt_tmp`. The daemon of a data root rotates and revives only the sessions with its suffix.
+3. The rendered rules of a suffixed tower end with a "Session names" section that gives the session name of each peer. The message ledger hook blocks a message to a tower name of another suffix (journal entry `blocked: other cycle`) in both directions: `dt_tmp` cannot message `et`, and `et` cannot message `dt_tmp`. A name that is not a tower name, such as the maintenance session, passes. The main cycle does not know that the second cycle exists.
+4. The servers are shared, so the second data root must use its own checkouts: the daemons do not know each other's (server, repo) slots. On 2026-10-27 the clones `/home/vision/dongjun/harness-tmp/<repo>` (container path `/workspace/harness-tmp/<repo>`, outputs `/workspace/harness-tmp/outputs`) were made on a100 and a6000 for `~/harness-data/faculty-opsd-tmp`. GPUs are still shared: ET of each cycle sees the other cycle's processes in gpu-status as external jobs.
+5. Commands take `--data-root <path>` before the subcommand, because `.harness-data-root` points to the main root: `bin/harness --data-root ~/harness-data/faculty-opsd-tmp tower start dt`. The towers themselves get the root from `HARNESS_DATA_ROOT` in their rendered settings.
+
 ## 9. Open decisions
 
 None. The researcher accepted O1 to O3 as D9 to D11.

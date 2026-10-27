@@ -251,13 +251,14 @@ def cmd_tower(args) -> int:
         session = tower.fork(args.name, find_data_root(args.data_root), args.model, replace=args.replace)
         print(json.dumps(session, ensure_ascii=False))
     elif args.action == "stop":
-        removed = tower.stop(args.name)
+        removed = tower.stop(tower.session_name(args.name, find_data_root(args.data_root)))
         print(f"stopped and removed: {', '.join(removed) or 'none'}")
     elif args.action == "command":
         print(" ".join(tower.start_command(args.name, find_data_root(args.data_root), args.model)))
     else:
+        names = set(tower.peers(find_data_root(args.data_root)).values())
         for session in tower.sessions():
-            if session.get("name") in tower.TOWERS:
+            if session.get("name") in names:
                 print(json.dumps({**session, "remote_control": tower.remote_url(session)}, ensure_ascii=False))
     return 0
 

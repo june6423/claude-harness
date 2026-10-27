@@ -108,6 +108,29 @@ class LedgerHookTest(unittest.TestCase):
             entries = list(journal.read(root / "messages.jsonl"))
             self.assertEqual(entries[-1]["blocked"], "rate limit")
 
+    def test_message_to_another_cycle_is_blocked(self):
+        def send(root, tower, to):
+            event = {"hook_event_name": "PreToolUse", "tool_name": "SendMessage",
+                     "tool_input": {"to": to, "message": format_message("STATUS", [], "ping")}}
+            with mock.patch.dict(os.environ, {"HARNESS_DATA_ROOT": str(root)}), \
+                    mock.patch.object(sys, "stdin", io.StringIO(json.dumps(event))), \
+                    mock.patch.object(sys, "stderr", io.StringIO()), \
+                    mock.patch.object(sys, "argv", ["message_ledger.py", "--tower", tower]):
+                return message_ledger.main()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "config.json").write_text(json.dumps({"towers": {"name_suffix": "_tmp"}}))
+            self.assertEqual(send(root, "dt", "et"), 2)          # the main cycle
+            self.assertEqual(send(root, "dt", "et_tmp"), 0)
+            self.assertEqual(send(root, "dt", "et_tmp [3fa9c1]"), 0)
+            self.assertEqual(send(root, "dt", "codex-to-claude-harness-migration"), 0)  # not a tower
+            (root / "config.json").write_text(json.dumps({"towers": {}}))
+            self.assertEqual(send(root, "et", "dt_tmp"), 2)
+            self.assertEqual(send(root, "et", "dt2"), 0)
+            self.assertEqual(send(root, "et", "dt"), 0)
+            blocked = [e["peer"] for e in journal.read(root / "messages.jsonl") if e.get("blocked") == "other cycle"]
+            self.assertEqual(blocked, ["et", "dt_tmp"])
+
     def test_other_events_write_nothing(self):
         with tempfile.TemporaryDirectory() as tmp:
             event = {"hook_event_name": "PreToolUse", "tool_name": "Bash", "tool_input": {"command": "ls"}}

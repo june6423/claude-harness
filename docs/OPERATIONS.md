@@ -81,6 +81,21 @@ DT2는 **토론 전용**입니다. record를 게시하지 못하고, ET·VT에 �
 - 멈춘 Tower를 daemon이 되살릴 때는 Remote Control도 함께 돌아옵니다.
 - 설정을 바꾼 뒤에는 그 Tower를 `bin/harness tower restart <tower> --resume <세션 ID 앞부분>`으로 다시 시작해야 켜집니다. attach 중이던 연결은 끊깁니다.
 
+## 2.6 별도의 임시 사이클 (dt_tmp, et_tmp, vt_tmp)
+
+다른 작업을 본 사이클과 섞지 않고 잠시 진행할 때 씁니다. 두 번째 데이터 경로가 곧 두 번째 사이클입니다. 기록, 작업 로그, PROJECT_STATE, config, executor daemon이 모두 따로입니다. 세션 이름만 `config.json`의 `towers.name_suffix`(예: `_tmp`)가 붙어 `dt_tmp`, `et_tmp`, `vt_tmp`가 됩니다. 두 사이클의 Tower는 서로 메시지를 보낼 수 없습니다(hook이 막습니다).
+
+```bash
+T=~/harness-data/faculty-opsd-tmp
+bin/harness --data-root $T tower status                 # 세션과 Remote Control 링크
+claude attach dt_tmp                                     # 이름으로 attach
+bin/harness --data-root $T tower restart dt --resume <ID>   # Tower 이름은 dt, 세션 이름은 dt_tmp
+bin/harness --data-root $T tower stop dt
+setsid nohup bin/harness --data-root $T executor watch >> $T/runtime/logs/executor-daemon.log 2>&1 < /dev/null &
+```
+
+서버는 공유하므로 임시 사이클은 서버에서 자기 checkout(`harness-tmp/<repo>`)만 씁니다. GPU는 공유됩니다. 임시 사이클을 끝낼 때는 Tower 세 개를 stop하고 그 daemon을 PID로 종료하면 됩니다. 데이터 경로는 남겨 두어도 됩니다.
+
 ## 3. 진행 확인
 
 ```bash

@@ -53,6 +53,12 @@ def main() -> int:
         if found:
             root = find_data_root()
             path = root / "messages.jsonl"
+            if found[0]["direction"] == "sent" and wrong_cycle(root, found[0]):
+                journal.append(path, {**found[0], "blocked": "other cycle"})
+                print(f"message_ledger: {found[0]['peer']!r} is a tower of another project. The towers of this "
+                      f"project are {', '.join(sorted(set(wrong_cycle.names.values())))}. Send the message "
+                      "to one of these.", file=sys.stderr)
+                return 2
             if found[0]["direction"] == "sent" and over_rate_limit(root, path, found[0]):
                 journal.append(path, {**found[0], "blocked": "rate limit"})
                 print("message_ledger: too many messages to this peer in 10 minutes. This can be a message "
@@ -63,6 +69,17 @@ def main() -> int:
     except Exception as error:  # a ledger failure must not stop the session
         print(f"message_ledger: {error}", file=sys.stderr)
     return 0
+
+
+def wrong_cycle(root: Path, entry: dict) -> bool:
+    """True when the message goes to a tower name of another data root (another suffix).
+    A name that is not a tower name, such as the maintenance session, passes."""
+    import re
+    from harness.tower import TOWERS, peers
+    wrong_cycle.names = peers(root)
+    peer = str(entry.get("peer") or "").split(" ")[0]
+    match = re.fullmatch("(" + "|".join(sorted(TOWERS, key=len, reverse=True)) + r")(_[A-Za-z0-9_-]+)?", peer)
+    return bool(match) and peer != wrong_cycle.names[match.group(1)]
 
 
 def over_rate_limit(root: Path, path: Path, entry: dict) -> bool:

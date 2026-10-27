@@ -26,6 +26,18 @@ def tower_config(data_root: Path) -> dict:
     return config.get("towers") or {}
 
 
+def session_name(tower: str, data_root: Path) -> str:
+    """The Claude Code session name of a tower: the tower name plus config towers.name_suffix.
+    A second data root with the suffix "_tmp" runs its own dt_tmp, et_tmp, and vt_tmp cycle
+    beside the main one (researcher request 2026-10-27). The hooks keep the two cycles apart."""
+    return tower + str(tower_config(data_root).get("name_suffix", "") or "")
+
+
+def peers(data_root: Path) -> dict[str, str]:
+    """tower name -> session name for each tower of a data root."""
+    return {tower: session_name(tower, data_root) for tower in TOWERS}
+
+
 def remote_control(tower: str, data_root: Path) -> bool:
     """config.json towers.remote_control: true for every tower, or a list of tower names."""
     value = tower_config(data_root).get("remote_control", False)
@@ -95,13 +107,20 @@ def render_settings(tower: str, data_root: Path, repo: Path = REPO_ROOT) -> Path
 def render_rules(tower: str, data_root: Path, repo: Path = REPO_ROOT) -> Path:
     """The rules file of a tower. A fork tower gets the rules of its source tower, then its own rules."""
     own = repo / "towers" / f"{tower}.md"
-    if tower not in FORKS:
+    names = peers(data_root)
+    if tower not in FORKS and names[tower] == tower:
         return own
-    source = repo / "towers" / f"{FORKS[tower]}.md"
+    parts = [(repo / "towers" / f"{FORKS[tower]}.md").read_text(encoding="utf-8")] if tower in FORKS else []
+    parts.append(own.read_text(encoding="utf-8"))
+    if names[tower] != tower:
+        listed = ", ".join(f"`{t}` is `{n}`" for t, n in names.items() if t not in FORKS)
+        parts.append(f"# Session names\n\nThis project runs a separate tower cycle. The session name of each tower "
+                     f"has a suffix: {listed}. You are `{names[tower]}`. Send each cross-session message to these "
+                     f"names. Do not send a message to a tower without the suffix. The harness blocks such a message. "
+                     f"The towers without the suffix belong to another project and do not know your records.\n")
     target = data_root / "runtime" / "rules" / f"{tower}.md"
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(source.read_text(encoding="utf-8").rstrip("\n") + "\n\n" + own.read_text(encoding="utf-8"),
-                      encoding="utf-8")
+    target.write_text("\n\n".join(part.rstrip("\n") for part in parts) + "\n", encoding="utf-8")
     return target
 
 
@@ -126,13 +145,14 @@ def start_command(tower: str, data_root: Path, model: str | None = None, name: s
         if not path.exists():
             raise RecordError(f"missing file: {path}")
     settings = render_settings(tower, data_root, repo)
-    command = ["claude", "--bg", "--agent", tower, "--name", name or tower,
+    name = name or session_name(tower, data_root)
+    command = ["claude", "--bg", "--agent", tower, "--name", name,
                "--append-system-prompt-file", str(render_rules(tower, data_root, repo)),
                "--settings", str(settings)]
     if remote_control(tower, data_root):
         # Remote Control: the session is reachable from claude.ai/code and the mobile app. The link
         # is bound to the session ID, so each new session gets a new link (see remote_url).
-        command += ["--remote-control", name or tower]
+        command += ["--remote-control", name]
     if model:
         command += ["--model", model]
     if resume:
@@ -199,8 +219,9 @@ def fork(tower: str, data_root: Path, model: str | None = None, replace: bool = 
     """Copy the worklog of the source tower to the fork tower, then start the fork tower."""
     if tower not in FORKS:
         raise RecordError(f"tower must be one of {', '.join(FORKS)}")
-    if not replace and named(tower):
-        raise RecordError(f"a session named {tower!r} exists. Use --replace to stop it and fork again")
+    if not replace and named(session_name(tower, data_root)):
+        raise RecordError(f"a session named {session_name(tower, data_root)!r} exists. "
+                          "Use --replace to stop it and fork again")
     source = FORKS[tower]
     worklog = data_root / "worklog"
     stamp = time.strftime("%Y-%m-%dT%H:%MZ", time.gmtime())
@@ -263,21 +284,22 @@ def reaped(tower: str, repo: Path = REPO_ROOT) -> dict | None:
 def start(tower: str, data_root: Path, model: str | None = None, prompt: str | None = None,
           wait_seconds: float = 15.0, replace: bool = False, resume: str | None = None) -> dict:
     command = start_command(tower, data_root, model or tower_model(tower, data_root), resume=resume)
+    name = session_name(tower, data_root)
     if replace:
-        stop(tower)
+        stop(name)
     else:
-        existing = named(tower)
+        existing = named(name)
         if existing:
             ids = ", ".join(f"{s['id']} ({s.get('state')})" for s in existing)
-            raise RecordError(f"a session named {tower!r} exists: {ids}. "
+            raise RecordError(f"a session named {name!r} exists: {ids}. "
                               f"Run 'bin/harness tower restart {tower}' to stop and replace it")
     if prompt:
         command.append(prompt)
     subprocess.run(command, cwd=REPO_ROOT, check=True, stdout=subprocess.DEVNULL)
     deadline = time.monotonic() + wait_seconds
     while time.monotonic() < deadline:
-        session = running(tower)
+        session = running(name)
         if session:
             return session
         time.sleep(1)
-    raise RecordError(f"tower {tower} did not appear in 'claude agents --json'")
+    raise RecordError(f"tower {name} did not appear in 'claude agents --json'")

@@ -143,7 +143,7 @@ class Executor:
         revived = []
         for name in towers.TOWERS:
             try:
-                session = towers.reaped(name)
+                session = towers.reaped(towers.session_name(name, self.store.root))
                 if session is None or time.time() - last.get(session["id"], 0) < KEEPALIVE_RETRY_SECONDS:
                     continue
                 last[session["id"]] = time.time()
@@ -165,7 +165,7 @@ class Executor:
         for request in sorted((self.store.root / "runtime" / "rotate").glob("*.json")):
             name = request.stem
             try:
-                sessions = towers.named(name)
+                sessions = towers.named(towers.session_name(name, self.store.root))
                 live = [s for s in sessions if s.get("state") not in ("stopped", "failed")]
                 if any(s.get("status") == "busy" for s in live):
                     continue

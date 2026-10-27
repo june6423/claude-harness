@@ -226,6 +226,29 @@ class ForkTest(unittest.TestCase):
         self.assertIsNone(tower.remote_url({"id": "cd34"}, jobs))
         self.assertIsNone(tower.remote_url({"id": "none"}, jobs))
 
+    def test_name_suffix_makes_a_separate_cycle(self):
+        from harness import tower
+        self.assertEqual(tower.session_name("dt", self.root), "dt")
+        self.assertEqual(tower.render_rules("et", self.root).name, "et.md")
+        (self.root / "config.json").write_text(json.dumps({"towers": {"name_suffix": "_tmp", "remote_control": True}}))
+        self.assertEqual(tower.peers(self.root), {"dt": "dt_tmp", "et": "et_tmp", "vt": "vt_tmp", "dt2": "dt2_tmp"})
+        command = tower.start_command("et", self.root)
+        self.assertEqual(command[command.index("--name") + 1], "et_tmp")
+        self.assertEqual(command[command.index("--agent") + 1], "et")
+        self.assertEqual(command[command.index("--remote-control") + 1], "et_tmp")
+        rules = tower.render_rules("et", self.root).read_text()
+        self.assertTrue(rules.startswith("# Engineering Tower"), rules[:40])
+        self.assertIn("You are `et_tmp`", rules)
+        self.assertIn("`vt` is `vt_tmp`", rules)
+        self.assertIn(str(self.root / "runtime" / "rules" / "et.md"), command)
+        dt2 = tower.render_rules("dt2", self.root).read_text()
+        self.assertIn("# DT2 rules", dt2)
+        self.assertIn("You are `dt2_tmp`", dt2)
+        with mock.patch.object(tower, "named", return_value=[{"id": "x", "state": "done"}]) as named:
+            with self.assertRaises(RecordError):
+                tower.start("et", self.root)
+            named.assert_called_with("et_tmp")
+
     def test_fork_cannot_publish_or_message(self):
         from harness import tower
         settings = json.loads(tower.render_settings("dt2", self.root).read_text())

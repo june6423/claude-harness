@@ -19,6 +19,9 @@ Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
 ExecStart=%h/harness/bin/harness executor watch
 Restart=always
 RestartSec=30
+# Stop only the daemon. Its workers, the remote runs they watch, and the Claude Code background
+# daemon (which it can start when it revives a tower after a boot) must survive a restart.
+KillMode=process
 StandardOutput=append:%h/harness-data/faculty-opsd/runtime/logs/executor-daemon.log
 StandardError=inherit
 

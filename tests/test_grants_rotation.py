@@ -123,13 +123,14 @@ class RotationTest(unittest.TestCase):
         executor = Executor(Store(self.root))
         busy = [{"name": "et", "state": "working", "status": "busy", "sessionId": "s1"}]
         idle = [{"name": "et", "state": "blocked", "status": "idle", "sessionId": "s1"}]
+        waiting = [{"name": "et", "state": "done", "status": "busy", "sessionId": "s1"}]  # a background wait
         with mock.patch("harness.tower.named", return_value=busy), mock.patch("harness.tower.start") as start:
             self.assertEqual(executor.rotate_towers(), [])
             start.assert_not_called()
         config = json.loads((self.root / "config.json").read_text())
         config["towers"] = {"models": {"et": "opus"}}
         (self.root / "config.json").write_text(json.dumps(config))
-        with mock.patch("harness.tower.named", return_value=idle), \
+        with mock.patch("harness.tower.named", return_value=waiting), \
                 mock.patch("harness.tower.start", return_value={"sessionId": "s2"}) as start:
             self.assertEqual(executor.rotate_towers(), ["et"])
             args, kwargs = start.call_args

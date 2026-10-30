@@ -166,8 +166,11 @@ class Executor:
             name = request.stem
             try:
                 sessions = towers.named(towers.session_name(name, self.store.root))
-                live = [s for s in sessions if s.get("state") not in ("stopped", "failed")]
-                if any(s.get("status") == "busy" for s in live):
+                # Wait while a turn runs (state working). Do not wait for status busy: a tower that
+                # ended its turn with a background wait (such as an until-loop on records) stays busy
+                # until the wait ends, which can take hours (seen 2026-10-30 for DT). The new session
+                # starts its own waits from the handover.
+                if any(s.get("state") == "working" for s in sessions):
                     continue
                 model = towers.tower_model(name, self.store.root)
                 new = towers.start(name, self.store.root, model, towers.rotation_prompt(name, self.store.root),

@@ -139,7 +139,7 @@ loginctl enable-linger $USER          # 로그인 전에도 부팅 시 시작
 systemctl --user status harness-executor
 ```
 
-이 방식을 쓰면 `nohup`으로 띄운 daemon은 먼저 종료해야 합니다(둘 다 있으면 두 번째가 lock 때문에 바로 끝납니다). harness를 업데이트한 뒤에는 `systemctl --user restart harness-executor`로 다시 시작합니다.
+이 방식을 쓰면 `nohup`으로 띄운 daemon은 먼저 종료해야 합니다. 둘 다 있으면 systemd 쪽이 lock 때문에 바로 끝나고 30초마다 다시 시도하면서 로그에 "another executor already runs"를 계속 남깁니다(2026-10-26~30에 11480줄). 종료할 때는 PID로 `kill <PID>`를 씁니다. 실행 중인 worker와 원격 run은 daemon 재시작 뒤에도 이어집니다. harness를 업데이트한 뒤에는 `systemctl --user restart harness-executor`로 다시 시작합니다.
 
 ## 9. 설치 확인
 

@@ -32,6 +32,9 @@ LOG_CHUNK_BYTES = 1 << 20
 TAIL_BYTES = 4000
 START_GRACE_SECONDS = 30
 KEEPALIVE_RETRY_SECONDS = 300
+# A session that started less than this long ago can show no process yet. On 2026-10-30 the daemon
+# respawned a DT session 2 seconds after the rotation started it.
+KEEPALIVE_START_GRACE_SECONDS = 180
 DEFAULT_FETCH_MAX_FILE_BYTES = 1 << 20
 DEFAULT_FETCH_MAX_TOTAL_BYTES = 20 << 20
 
@@ -145,6 +148,8 @@ class Executor:
             try:
                 session = towers.reaped(towers.session_name(name, self.store.root))
                 if session is None or time.time() - last.get(session["id"], 0) < KEEPALIVE_RETRY_SECONDS:
+                    continue
+                if time.time() - session.get("startedAt", 0) / 1000 < KEEPALIVE_START_GRACE_SECONDS:
                     continue
                 last[session["id"]] = time.time()
                 write_json(state_path, last)

@@ -161,6 +161,15 @@ class KeepAliveTest(unittest.TestCase):
         with mock.patch.object(tower, "named", return_value=[]):
             self.assertIsNone(tower.reaped("et"))             # removed by 'harness tower stop'
 
+    def test_executor_does_not_respawn_a_session_that_just_started(self):
+        import time
+        executor = Executor(Store(self.root))
+        session = {"id": "n", "sessionId": "n-full", "startedAt": time.time() * 1000 - 5000}
+        with mock.patch("harness.tower.reaped", side_effect=lambda name: session if name == "dt" else None), \
+                mock.patch("harness.tower.respawn") as respawn:
+            self.assertEqual(executor.revive_towers(), [])
+            respawn.assert_not_called()
+
     def test_executor_respawns_once_per_interval(self):
         executor = Executor(Store(self.root))
         session = {"id": "a", "sessionId": "a-full"}

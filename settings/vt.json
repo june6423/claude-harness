@@ -36,7 +36,9 @@
       "Edit(/{{DATA_ROOT}}/worklog/vt-summary.md)",
       "Bash(bin/harness handover vt *)",
       "Bash(bin/harness grants)",
-      "Bash(bin/harness grants *)"
+      "Bash(bin/harness grants *)",
+      "Edit(/{{DATA_ROOT}}/archive/*-vt.md)",
+      "Bash(bin/harness archive *)"
     ],
     "deny": [
       "Edit(/{{HARNESS}}/**)",
@@ -64,7 +66,8 @@
     ],
     "filesystem": {
       "allowWrite": [
-        "{{DATA_ROOT}}/runtime/drafts/vt"
+        "{{DATA_ROOT}}/runtime/drafts/vt",
+        "{{DATA_ROOT}}/archive"
       ],
       "denyWrite": [
         "{{HARNESS}}"

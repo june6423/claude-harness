@@ -105,6 +105,17 @@ setsid nohup bin/harness --data-root $T executor watch >> $T/runtime/logs/execut
 - **Tower의 로컬 명령:** 샌드박스 안에서 도는 명령(검색, 파일 확인, 버전 확인, 로컬 테스트)은 모두 허용됩니다. 쓰기 범위와 네트워크는 샌드박스가 막습니다. `git push`는 모든 형태가 거부되고 `bin/harness git`만 씁니다.
 - **결정 요청 형식:** DT는 배경 → 무슨 일 → 선택지별 영향·비용 → 추천 → 기본값 순서로 묻고, ID와 용어는 처음 나올 때 풀어 씁니다. 선택지가 있으면 AskUserQuestion으로 묻습니다.
 
+## 2.8 기록의 네 층 (2026-11-02부터)
+
+| 파일 | 읽으면 알 수 있는 것 | 상한 |
+|---|---|---|
+| `state/PROJECT_STATE.md` | 지금 무엇을 믿고, 무엇을 결정해야 하나. 연구 질문 → 현재 위치("A를 알아보려고 B를 했고 C가 나왔다") → 가설 → 결정 대기 → 닫힌 실험 한 줄씩 | 9,000자, 5개 절 고정(하니스가 검사) |
+| `worklog/<tower>-summary.md` | 다음 세션이 이어 가는 데 필요한 것만 | 8,000자(넘으면 경고) |
+| `worklog/<tower>.md` | 이번 세션의 작업 기록 | 40,000자(규칙) |
+| `archive/<실험 ID>.md`, `archive/<tower>-log-*.md` | 닫힌 실험의 전체 기록. `archive/INDEX.md`에 한 줄씩 목록 | 없음 |
+
+옛 기록을 찾을 때는 `bin/harness archive search <단어>`를 씁니다. archive 파일과 record 본문을 절 단위로 검색합니다. 연구자가 빠르게 상황을 파악하려면 PROJECT_STATE.md 하나만 읽으면 됩니다.
+
 ## 3. 진행 확인
 
 ```bash

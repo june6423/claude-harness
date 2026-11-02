@@ -221,6 +221,26 @@ def cmd_handover(args) -> int:
     journal.append(Store(root).journal_path, {"actor": args.tower.upper(), "event": "HANDOVER",
                                                "worklog": str(worklog.relative_to(root))})
     print(f"handover written to {worklog}. End your turn. The executor daemon starts a new session.")
+    summary = root / "worklog" / f"{args.tower}-summary.md"
+    limit = Store(root).limits()["handover_summary_chars"]
+    size = len(summary.read_text(encoding="utf-8")) if summary.exists() else 0
+    if size > limit:
+        # A warning, not a refusal: a rotation must not stop when the context is full.
+        journal.append(Store(root).journal_path, {"actor": args.tower.upper(), "event": "SUMMARY_OVER_LIMIT",
+                                                   "chars": size, "limit": limit})
+        print(f"warning: {summary.name} has {size} characters; the limit is {limit} (handover_summary_chars). "
+              "The next session must move the entries about closed experiments to archive/ first.")
+    return 0
+
+
+def cmd_archive(args) -> int:
+    from .store import archive_search
+    root = find_data_root(args.data_root)
+    hits = archive_search(root, " ".join(args.words), limit=args.limit)
+    for hit in hits:
+        print(f"{hit['score']:7.3f}  {hit['path']}#{hit['heading'] or '(top)'}\n         {hit['snippet']}")
+    if not hits:
+        print("no section matches. Try other words, or read archive/INDEX.md.")
     return 0
 
 
@@ -344,6 +364,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("tower", choices=tower.TOWERS)
     p.add_argument("file")
     p.set_defaults(func=cmd_handover)
+
+    p = sub.add_parser("archive", help="search the archive and the record bodies by keywords (BM25)")
+    p.add_argument("action", choices=("search",))
+    p.add_argument("words", nargs="+", help="search words")
+    p.add_argument("--limit", type=int, default=8)
+    p.set_defaults(func=cmd_archive)
 
     p = sub.add_parser("grants", help="list active standing grants")
     p.add_argument("--holder", choices=("et", "vt"))

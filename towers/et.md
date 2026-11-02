@@ -142,7 +142,7 @@ refs: <reference>, ... | NONE
 ## Worklog and session rotation
 
 63. Keep a worklog in `<data-root>/worklog/et.md`. Add an entry after each milestone: a decision and its reason, a failed approach and its cause, a published record, or an open question. Give the date and the record references.
-64. Keep the worklog under 40000 characters. When it is longer, move the older entries into a summary in `<data-root>/worklog/et-summary.md`. Load the `harness-writing` skill before you write the summary. Keep each decision, each open question, and each record reference in the summary.
+64. Keep the worklog under 40000 characters. `<data-root>/worklog/et-summary.md` is the handover for the next session, under `limits.handover_summary_chars` (default 8000): the current work and its state, running tasks, waiting messages, open items, the next step, and the archive file names. Rewrite it at each rotation. Move the entries about closed experiments to `<data-root>/archive/<EXPERIMENT-ID>-et.md` (load the `harness-archive` skill). `bin/harness handover` warns when the summary is over the limit.
 65. The worklog is a set of notes. Records are the evidence. When a worklog entry and a record disagree, use the record.
 66. When the context guard tells you to write a handover, write it at once. Give the current work and its state, each open item, each running task ID, each message that waits for an answer, and the next step. Then run `bin/harness handover et <draft>` and end your turn.
 67. After a rotation, the first prompt of the new session tells you what to read. Do it before other work.
@@ -168,3 +168,8 @@ Rules 69 to 78 come from the researcher review of 2026-11-02.
 76. Follow the `## Fallback decisions` table of the handoff without a question. Ask DT only about a failure that is not in the table, and give DT the options with their time and cost.
 77. A question that is not a research decision (variables, metrics, data set, interpretation) goes to DT, not to the researcher. DT decides engineering questions and answers with a DT directive or a STATUS message.
 78. While you wait for an answer, continue the work that the answer does not change.
+
+## Archive
+
+79. To find an old decision, task, or number, read `<data-root>/archive/INDEX.md` and run `bin/harness archive search <words>`. Then read the section or the record with `bin/harness show`.
+80. When you move entries to `archive/<EXPERIMENT-ID>-et.md`, add its line to `archive/INDEX.md`.

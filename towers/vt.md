@@ -72,7 +72,7 @@ refs: <reference>, ... | NONE
 ## Worklog and session rotation
 
 32. Keep a worklog in `<data-root>/worklog/vt.md`. Add an entry after each milestone: a decision and its reason, a failed approach and its cause, a published record, or an open question. Give the date and the record references.
-33. Keep the worklog under 40000 characters. When it is longer, move the older entries into a summary in `<data-root>/worklog/vt-summary.md`. Load the `harness-writing` skill before you write the summary. Keep each decision, each open question, and each record reference in the summary.
+33. Keep the worklog under 40000 characters. `<data-root>/worklog/vt-summary.md` is the handover for the next session, under `limits.handover_summary_chars` (default 8000): the current reviews and their state, waiting messages, open items, the next step, and the archive file names. Rewrite it at each rotation. Move the entries about closed experiments to `<data-root>/archive/<EXPERIMENT-ID>-vt.md` (load the `harness-archive` skill). `bin/harness handover` warns when the summary is over the limit.
 34. The worklog is a set of notes. Records are the evidence. When a worklog entry and a record disagree, use the record.
 35. When the context guard tells you to write a handover, write it at once. Give the current work and its state, each open item, each running task ID, each message that waits for an answer, and the next step. Then run `bin/harness handover vt <draft>` and end your turn.
 36. After a rotation, the first prompt of the new session tells you what to read. Do it before other work.
@@ -85,3 +85,5 @@ refs: <reference>, ... | NONE
 40. A POST_RUN verdict on an IMPLEMENT_ONLY handoff needs no result. Give it on the report and the code.
 41. A directive with `"origin": "DT"` carries an engineering decision of DT. It has the same authority as a researcher directive inside its scope.
 42. When you write to the researcher, explain each ID and each term at its first use.
+
+43. To find an old verdict, defect, or number, read `<data-root>/archive/INDEX.md` and run `bin/harness archive search <words>`. Then read the section or the record with `bin/harness show`. When you move entries to `archive/<EXPERIMENT-ID>-vt.md`, add its line to `archive/INDEX.md`.

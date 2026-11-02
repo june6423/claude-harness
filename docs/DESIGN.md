@@ -628,6 +628,8 @@ A long tower session loses quality and costs more for each turn. A tower gets a 
 | D21 | A FULL task needs a pilot: a PASS VALIDATION run of the same script at the same commit with `PILOT=1` that went through every stage. | 2026-11-02 |
 | D22 | A handoff names a branch, not a commit. After a code fix, VT binds the new commit in a new PRE_RUN verdict under the same handoff. | 2026-11-02 |
 | D23 | A decision request to the researcher gives the context, the options with their effects and costs, and a recommendation, in plain words. | 2026-11-02 |
+| D24 | The record has four layers: PROJECT_STATE.md (research narrative, five fixed sections, 9000 chars), the handover summary (8000 chars, rewritten at each rotation), the session worklog, and `archive/` (full history by experiment, with INDEX.md). | 2026-11-02 |
+| D25 | Retrieval from the archive is `harness archive search`, a stdlib BM25 over Markdown sections. No external search tool or vector store. | 2026-11-02 |
 
 Reason for D18: VT is the gate for FULL runs and for result acceptance, so a missed defect becomes a research conclusion. A DT error in design or paper reading spreads to all later work. ET uses the most tokens, and its failures show in run results and VT verdicts.
 
@@ -689,6 +691,15 @@ The researcher reviewed VLM-VAD-ROLLOUT-001 (2026-10-26 to 11-02): 11 handoff re
 5. **Explanations.** DT rules 66 to 69 give the order of a decision request and the rule that each ID and term is explained at its first use.
 
 The new settings and rules apply when a tower session starts. The daemon applies the record rules at once.
+
+## 26. Layered record and archive (2026-11-02)
+
+1. Problem: PROJECT_STATE.md (18326 chars, at its limit) listed settings, IDs, and tables instead of the narrative "to learn A we did B, the result was C"; its only good section was Live hypotheses. worklog/dt-summary.md (53083 chars) was a condensed log of every session since 2026-10-08, so each new session read about 120000 chars of state, summary, and worklog. Nothing had a lifetime: closed experiments stayed in both files.
+2. PROJECT_STATE.md has five fixed sections (store `PROJECT_STATE_SECTIONS`): Research question, Where we stand, Live hypotheses, Decisions waiting for the researcher, Closed experiments. dt_guard refuses another layout and a size over `project_state_chars` (now 9000).
+3. `worklog/<tower>-summary.md` is the handover only. `harness handover` warns (journal event SUMMARY_OVER_LIMIT) when it is over `handover_summary_chars` (8000); it does not refuse, because a rotation must not stop when the context is full. The rotation prompt tells the new session to move closed material to `archive/` first.
+4. `archive/` holds one file for each closed experiment (question, design, result, interpretation and limits, chronology, records) and the log files that the towers move out of their summaries. `archive/INDEX.md` has one line for each file. `init` creates the directory and the index.
+5. `harness archive search <words>` ranks the sections of `archive/*.md` and the bodies of handoffs, reports, verdicts, and directives with BM25 (stdlib, D12). Reasons against an external tool (qmd, local-rag, claude-mem): the corpus is under 1 MB and grows by a few MB a year; the documents are STE English with a controlled vocabulary, so keyword search is enough; qmd needs Node and about 2 GB of local models; the memory plugins keep a second store beside the records. The `harness-archive` skill tells the towers how to write the layers and how to search.
+6. Migration on 2026-11-02: the old dt-summary.md went to `archive/dt-log-2026-10-08_to_2026-11-01.md` unchanged; the old PROJECT_STATE.md to `archive/PROJECT_STATE-2026-11-02.md`; one skeleton file for each of the six experiments with its chronology pointers and record list; the new PROJECT_STATE.md carries the Live hypotheses over and marks the other sections for DT; the new dt-summary.md is the latest handover. DT writes the narratives.
 
 ## 9. Open decisions
 

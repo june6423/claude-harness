@@ -148,8 +148,13 @@ def check_state(event: dict) -> int:
         return 0
     if len(new) > limit:
         return block(f"PROJECT_STATE.md would have {len(new)} characters. The limit is {limit}. "
-                     "Keep only current decisions, live hypotheses, validated evidence, and open questions. "
-                     "Refer to settled material by record reference.")
+                     "PROJECT_STATE.md is the research narrative: the question, where we stand, live hypotheses, "
+                     "decisions that wait, and one line for each closed experiment. Move details to archive/.")
+    from harness.store import PROJECT_STATE_SECTIONS
+    headings = [line[3:].strip() for line in new.splitlines() if line.startswith("## ")]
+    if headings != list(PROJECT_STATE_SECTIONS):
+        return block("PROJECT_STATE.md must have exactly these '## ' sections, in this order: "
+                     + ", ".join(PROJECT_STATE_SECTIONS) + f". Found: {', '.join(headings) or 'none'}.")
     return 0
 
 

@@ -44,7 +44,9 @@
       "Bash(bin/harness grants *)",
       "Bash(bin/harness publish grant * --actor DT)",
       "Bash(bin/harness publish revoke * --actor DT)",
-      "Bash(bin/harness cancel * --actor DT)"
+      "Bash(bin/harness cancel * --actor DT)",
+      "Edit(/{{DATA_ROOT}}/archive/**)",
+      "Bash(bin/harness archive *)"
     ],
     "deny": [
       "Edit(/{{HARNESS}}/**)",
@@ -73,7 +75,8 @@
     "filesystem": {
       "allowWrite": [
         "{{DATA_ROOT}}/runtime/drafts/dt",
-        "{{DATA_ROOT}}/state"
+        "{{DATA_ROOT}}/state",
+        "{{DATA_ROOT}}/archive"
       ],
       "denyWrite": [
         "{{HARNESS}}"

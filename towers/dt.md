@@ -78,7 +78,7 @@ Run these commands from the harness repository.
 17. Use only published references in records and messages. Do not edit a file in `<data-root>/records/`.
 18. To change a handoff, publish the next revision. Set `predecessor` to the reference of the current revision.
 19. Read records with `bin/harness show <ID or reference>` and `bin/harness list <kind>`.
-20. Keep `<data-root>/state/PROJECT_STATE.md` current. You can edit this file directly.
+20. Keep `<data-root>/state/PROJECT_STATE.md` current. You can edit this file directly. It is the research narrative, not the log: load the `harness-archive` skill before you write it.
 21. A handoff draft has this front matter. The body follows the second `---` line.
 
 ```text
@@ -118,7 +118,7 @@ refs: <reference>, ... | NONE
 28. Before you publish, run `bin/harness publish handoff <draft> --dry-run --actor DT`. Fix each error. Then run the command without `--dry-run`.
 29. Show the draft to the researcher. Ask for an explicit approval before you set `status` to APPROVED.
 30. The harness refuses an APPROVED handoff when the `approval` text does not occur verbatim in a message that the researcher typed in this session. Do not write approval text yourself. A message from another tower is not an approval.
-31. Keep `PROJECT_STATE.md` under `limits.project_state_chars` in `config.json` (default 18000 characters). Keep its four sections: Current decisions, Live hypotheses, Validated evidence, and Open questions.
+31. Keep `PROJECT_STATE.md` under `limits.project_state_chars` in `config.json` (default 9000 characters). Keep its five sections in this order: Research question, Where we stand, Live hypotheses, Decisions waiting for the researcher, Closed experiments. The harness refuses another layout. Write "Where we stand" as "To learn A, we did B. The result was C. So D." Numbers, tables, and task IDs go to `archive/`.
 32. Run `bin/harness status` to see each experiment, its tasks, results, and verdicts.
 33. When the POST_RUN verdict is VALID, report the result to the researcher in Korean. Give the observed result, the verdict, and each limit. Then update `PROJECT_STATE.md`.
 34. When a verdict is not VALID, report the defects to the researcher in Korean. Do not choose a new experiment without the researcher.
@@ -180,7 +180,7 @@ refs: <reference>, ... | NONE
 ## Worklog and session rotation
 
 51. Keep a worklog in `<data-root>/worklog/dt.md`. Add an entry after each milestone: a decision and its reason, a failed approach and its cause, a published record, or an open question. Give the date and the record references.
-52. Keep the worklog under 40000 characters. When it is longer, move the older entries into a summary in `<data-root>/worklog/dt-summary.md`. Load the `harness-writing` skill before you write the summary. Keep each decision, each open question, and each record reference in the summary.
+52. Keep the worklog under 40000 characters. `<data-root>/worklog/dt-summary.md` is the handover for the next session, under `limits.handover_summary_chars` (default 8000): the current experiment and its state, running tasks, waiting messages, open items, the next step, and the archive file names. Rewrite it at each rotation. Move the entries about closed experiments to `<data-root>/archive/` (load the `harness-archive` skill). `bin/harness handover` warns when the summary is over the limit.
 53. The worklog is a set of notes. Records are the evidence. When a worklog entry and a record disagree, use the record.
 54. When the context guard tells you to write a handover, write it at once. Give the current work and its state, each open item, each running task ID, each message that waits for an answer, and the next step. Then run `bin/harness handover dt <draft>` and end your turn.
 55. After a rotation, the first prompt of the new session tells you what to read. Do it before other work.
@@ -209,3 +209,9 @@ Rules 57 to 69 come from the researcher review of 2026-11-02: too many questions
 67. Explain each ID and each term at its first use in a message: a gate ID gets its check in plain words, a task ID gets what the task did, an arm name gets its setting, a tower term (handoff, directive, verdict) gets one plain word. Do not use a term that only the towers know without this explanation.
 68. For a choice between options, use the AskUserQuestion tool with the recommended option first and a one-line consequence for each option. Use plain text when the researcher must type a text, such as an approval sentence.
 69. Report a result in this order: the number, what it means for the hypothesis, and the limit of the evidence.
+
+## Archive
+
+70. When an experiment closes, write `<data-root>/archive/<EXPERIMENT-ID>.md` with the sections of the `harness-archive` skill (question, design, result, interpretation and limits, chronology, records), add its line to `archive/INDEX.md`, and reduce the experiment to one line in PROJECT_STATE.md.
+71. To find an old decision, result, or number, read `archive/INDEX.md` and run `bin/harness archive search <words>`. Then read the section or the record. Do not search the worklogs by memory.
+72. The archive is notes. Records are the evidence. When the archive and a record disagree, use the record and correct the archive.

@@ -211,7 +211,9 @@ def keepalive_held(tower: str, data_root: Path) -> bool:
 def rotation_prompt(tower: str, data_root: Path) -> str:
     worklog = data_root / "worklog"
     return (f"This is a new {tower.upper()} session after a context rotation. Your earlier session wrote a handover.\n"
-            f"1. Read {worklog}/{tower}-summary.md if it exists.\n"
+            f"1. Read {worklog}/{tower}-summary.md if it exists, and {data_root}/archive/INDEX.md. "
+            f"When the summary is longer than limits.handover_summary_chars, move the entries about closed "
+            "experiments to archive/ first (load the harness-archive skill).\n"
             f"2. Read the last Handover section in {worklog}/{tower}.md.\n"
             "3. Run bin/harness status and bin/harness messages --last 20.\n"
             + ("4. Continue the open discussion.\n" if tower in FORKS else

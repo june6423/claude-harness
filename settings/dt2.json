@@ -36,7 +36,8 @@
       "Edit(/{{DATA_ROOT}}/worklog/dt2-summary.md)",
       "Bash(bin/harness handover dt2 *)",
       "Bash(bin/harness grants)",
-      "Bash(bin/harness grants *)"
+      "Bash(bin/harness grants *)",
+      "Bash(bin/harness archive *)"
     ],
     "deny": [
       "Edit(/{{HARNESS}}/**)",
@@ -57,7 +58,8 @@
       "Bash(bin/harness cancel *)",
       "Bash(git push*)",
       "Bash(git * push)",
-      "Bash(git * push *)"
+      "Bash(git * push *)",
+      "Edit(/{{DATA_ROOT}}/archive/**)"
     ]
   },
   "sandbox": {

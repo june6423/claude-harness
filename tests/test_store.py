@@ -236,6 +236,21 @@ class StoreTest(unittest.TestCase):
         self.store.publish("result", json.dumps({**result, "cancel": cancel.ref}), "EXECUTOR")
         self.assertEqual(self.store.verify(), [])
 
+    def test_archive_search_ranks_sections(self):
+        from harness.store import archive_search
+        self.assertTrue((self.root / "archive" / "INDEX.md").exists())  # init made the archive
+        (self.root / "archive" / "VLM-DEMO-001.md").write_text(
+            "# VLM-DEMO-001\n\n## Question\n\nDoes the judge temperature change accuracy?\n\n"
+            "## Result\n\nThe judge at temperature 0 gave 66.3 and the rule grader 58.8.\n")
+        (self.root / "archive" / "dt-log.md").write_text("# Log\n\n## 2026-10-11\n\nMasking-KD run on a100 GPU 4-7.\n")
+        handoff = self.publish_handoff()
+        hits = archive_search(self.root, "judge temperature")
+        self.assertEqual((hits[0]["path"], hits[0]["heading"]), ("archive/VLM-DEMO-001.md", "Question"))
+        self.assertIn("judge", hits[0]["snippet"].lower())
+        self.assertTrue(any(h["path"].startswith("records/handoff/") for h in archive_search(self.root, "transplant")))
+        self.assertEqual(archive_search(self.root, "zzzz-nothing"), [])
+        self.assertEqual(archive_search(self.root, "masking-kd a100")[0]["heading"], "2026-10-11")
+
     def test_report_needs_sections(self):
         handoff = self.publish_handoff()
         front = {"kind": "report", "experiment_id": "VLM-OPSD-TRANSPLANT-001", "handoff": handoff.ref,

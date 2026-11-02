@@ -83,7 +83,7 @@ ssh <ssh_host> 'docker exec <container> test -d /workspace/harness/<repo> && ech
 | `towers.sandbox` | 2단계를 했으면 `true` |
 | `towers.name_suffix` | 두 번째 사이클을 같은 컴퓨터에서 돌릴 때 세션 이름에 붙일 접미사(예: `_tmp`). 본 사이클은 비워 둡니다 |
 | `towers.remote_control` | Claude 앱에서 볼 Tower 이름 목록(예: `["dt", "dt2"]`) 또는 `true`. 빼면 끔 |
-| `limits` | handoff revision마다의 run·FULL task 수, recovery 횟수, DT directive 수(`dt_directives_per_handoff`, 기본 10), 메시지 빈도, 세션 교체 기준. 빼면 기본값을 씁니다 |
+| `limits` | handoff revision마다의 run·FULL task 수, recovery 횟수, DT directive 수(`dt_directives_per_handoff`, 기본 10), 메시지 빈도, 세션 교체 기준, PROJECT_STATE 크기(`project_state_chars`, 기본 9000), 인계 요약 크기(`handover_summary_chars`, 기본 8000). 빼면 기본값을 씁니다 |
 | `workspaces.<key>.remote` | 로컬 workspace의 `origin` 주소와 정확히 같아야 합니다. `bin/harness git`이 이것을 확인합니다 |
 | `workspaces.<key>.server_outputs` | 컨테이너 안에서 실행 결과를 쓸 폴더 |
 | `servers.<server>.repos.<key>.path` | 서버 호스트에서 본 harness 전용 checkout 경로 |

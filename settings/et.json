@@ -42,7 +42,9 @@
       "Bash(bin/harness cancel * --actor ET)",
       "Bash(ssh *)",
       "Bash(scp *)",
-      "Bash(rsync *)"
+      "Bash(rsync *)",
+      "Edit(/{{DATA_ROOT}}/archive/*-et.md)",
+      "Bash(bin/harness archive *)"
     ],
     "deny": [
       "Edit(/{{HARNESS}}/**)",
@@ -89,7 +91,8 @@
     "filesystem": {
       "allowWrite": [
         "{{DATA_ROOT}}/runtime/drafts/et",
-        "{{DATA_ROOT}}/workspace"
+        "{{DATA_ROOT}}/workspace",
+        "{{DATA_ROOT}}/archive"
       ],
       "denyWrite": [
         "{{HARNESS}}"

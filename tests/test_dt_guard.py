@@ -119,16 +119,24 @@ class GuardTest(unittest.TestCase):
         config["limits"] = {"project_state_chars": 200}
         (self.root / "config.json").write_text(json.dumps(config))
         state = str(self.root / "state" / "PROJECT_STATE.md")
+        from harness.store import PROJECT_STATE_SECTIONS, PROJECT_STATE_TEMPLATE
         small = {"hook_event_name": "PreToolUse", "tool_name": "Write",
-                 "tool_input": {"file_path": state, "content": "# Project State\n"}}
+                 "tool_input": {"file_path": state, "content": PROJECT_STATE_TEMPLATE}}
         self.assertEqual(self.run_guard(small)[0], 0)
-        big = dict(small, tool_input={"file_path": state, "content": "x" * 201})
+        big = dict(small, tool_input={"file_path": state, "content": PROJECT_STATE_TEMPLATE + "x" * 201})
         code, message = self.run_guard(big)
         self.assertEqual(code, 2)
         self.assertIn("The limit is 200", message)
         edit = {"hook_event_name": "PreToolUse", "tool_name": "Edit",
                 "tool_input": {"file_path": state, "old_string": "NONE", "new_string": "y" * 300}}
         self.assertEqual(self.run_guard(edit)[0], 2)
+        # the five sections are fixed (researcher review 2026-11-02): the old four-section layout is refused
+        old = "# Project State\n\n## Current decisions\n\nx\n\n## Live hypotheses\n\nx\n\n## Validated evidence\n\nx\n\n## Open questions\n\nx\n"
+        code, message = self.run_guard(dict(small, tool_input={"file_path": state, "content": old}))
+        self.assertEqual(code, 2)
+        self.assertIn(PROJECT_STATE_SECTIONS[1], message)
+        dropped = PROJECT_STATE_TEMPLATE.replace("## Closed experiments\n\nNONE\n", "")
+        self.assertEqual(self.run_guard(dict(small, tool_input={"file_path": state, "content": dropped}))[0], 2)
 
 
 class LimitAndDraftTest(unittest.TestCase):

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import fcntl
 import json
+import math
 import os
 import re
 import subprocess
@@ -15,7 +16,7 @@ from typing import Any, Iterator
 from . import journal
 from .records import (
     EXECUTION_MODES, KINDS, NONE, RecordError, extension, kind_of_id, make_ref, parse, parse_ref,
-    serialize, sha256_bytes, validate,
+    serialize, sha256_bytes, split_front_matter, validate,
 )
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -23,7 +24,11 @@ POINTER_FILE = REPO_ROOT / ".harness-data-root"
 ACTORS = ("DT", "ET", "VT", "EXECUTOR", "RESEARCHER")
 # Character limits. config.json "limits" can change each value.
 DEFAULT_LIMITS = {"handoff_body_chars": 12000, "report_body_chars": 9000, "verdict_body_chars": 9000,
-                  "directive_body_chars": 9000, "project_state_chars": 18000,
+                  "directive_body_chars": 9000,
+                  # PROJECT_STATE.md is the research narrative, not the log (researcher review 2026-11-02).
+                  "project_state_chars": 9000,
+                  # worklog/<tower>-summary.md is the handover only; older material goes to archive/.
+                  "handover_summary_chars": 8000,
                   # Budgets for each handoff revision. A new revision needs researcher approval,
                   # so the counts start again only after the researcher acts.
                   "run_tasks_per_handoff": 20, "full_tasks_per_handoff": 3, "recovery_attempts": 5,
@@ -33,9 +38,16 @@ DEFAULT_LIMITS = {"handoff_body_chars": 12000, "report_body_chars": 9000, "verdi
                   "messages_per_peer_per_10_minutes": 10,
                   # A tower writes a handover and gets a new session at this context size.
                   "context_rotate_tokens": 600000}
+# The five sections of PROJECT_STATE.md, in this order. dt_guard refuses an edit that drops one.
+PROJECT_STATE_SECTIONS = ("Research question", "Where we stand", "Live hypotheses",
+                          "Decisions waiting for the researcher", "Closed experiments")
 PROJECT_STATE_TEMPLATE = """# Project State
 
-## Current decisions
+## Research question
+
+NONE
+
+## Where we stand
 
 NONE
 
@@ -43,13 +55,19 @@ NONE
 
 NONE
 
-## Validated evidence
+## Decisions waiting for the researcher
 
 NONE
 
-## Open questions
+## Closed experiments
 
 NONE
+"""
+ARCHIVE_INDEX_TEMPLATE = """# Archive index
+
+One line for each file in archive/: `file | experiment or period | dates | result in one sentence | search words`.
+Search the archive with `bin/harness archive search <words>`.
+
 """
 
 
@@ -81,6 +99,10 @@ def init_data_root(path: Path, write_pointer: bool = True) -> Path:
     for kind in KINDS:
         (path / "records" / kind).mkdir(parents=True, exist_ok=True)
     (path / "artifacts").mkdir(exist_ok=True)
+    (path / "archive").mkdir(exist_ok=True)
+    index = path / "archive" / "INDEX.md"
+    if not index.exists():
+        index.write_text(ARCHIVE_INDEX_TEMPLATE, encoding="utf-8")
     (path / "worklog").mkdir(exist_ok=True)
     (path / "state").mkdir(exist_ok=True)
     (path / "runtime").mkdir(exist_ok=True)
@@ -547,6 +569,67 @@ class Store:
                     except RecordError as error:
                         problems.append(f"{record_id}: {error}")
         return problems
+
+
+def _sections(text: str) -> Iterator[tuple[str, str]]:
+    """(heading, body) for each heading of a Markdown text; the text before the first heading is one section."""
+    heading, lines = "", []
+    for line in text.splitlines():
+        if line.startswith("#"):
+            if lines or heading:
+                yield heading, "\n".join(lines)
+            heading, lines = line.lstrip("#").strip(), []
+        else:
+            lines.append(line)
+    if lines or heading:
+        yield heading, "\n".join(lines)
+
+
+def _tokens(text: str) -> list[str]:
+    return re.findall(r"[a-z0-9][a-z0-9_.-]*", text.lower())
+
+
+def archive_search(root: Path, query: str, limit: int = 8) -> list[dict[str, Any]]:
+    """BM25 over the sections of archive/*.md and the bodies of the Markdown records.
+
+    The corpus is small and written in STE English with a controlled vocabulary, so keyword
+    search finds what a tower needs (researcher decision 2026-11-02, no external search tool)."""
+    documents: list[tuple[str, str, str]] = []  # (path, heading, body)
+    sources = sorted((root / "archive").glob("*.md"))
+    for kind in ("handoff", "report", "verdict", "directive"):
+        sources += sorted((root / "records" / kind).glob("*.md"))
+    for path in sources:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        if path.parent.name != "archive":
+            try:
+                text = split_front_matter(text)[1]
+            except RecordError:
+                pass
+        for heading, body in _sections(text):
+            if body.strip():
+                documents.append((str(path.relative_to(root)), heading, body))
+    terms = _tokens(query)
+    if not terms or not documents:
+        return []
+    token_lists = [_tokens(f"{heading}\n{body}") for _, heading, body in documents]
+    average = sum(len(t) for t in token_lists) / len(token_lists)
+    frequency = {term: sum(1 for t in token_lists if term in t) for term in set(terms)}
+    k1, b = 1.5, 0.75
+    scored = []
+    for (path, heading, body), tokens in zip(documents, token_lists):
+        score = 0.0
+        for term in terms:
+            tf = tokens.count(term)
+            if not tf:
+                continue
+            idf = math.log(1 + (len(documents) - frequency[term] + 0.5) / (frequency[term] + 0.5))
+            score += idf * tf * (k1 + 1) / (tf + k1 * (1 - b + b * len(tokens) / average))
+        if score > 0:
+            snippet = next((line.strip() for line in body.splitlines()
+                            if any(term in line.lower() for term in terms)), body.strip().splitlines()[0])
+            scored.append({"path": path, "heading": heading, "score": round(score, 3), "snippet": snippet[:240]})
+    scored.sort(key=lambda d: -d["score"])
+    return scored[:limit]
 
 
 def _refs_in(value: Any) -> Iterator[str]:

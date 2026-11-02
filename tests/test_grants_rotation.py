@@ -116,6 +116,18 @@ class RotationTest(unittest.TestCase):
         self.assertTrue((self.root / "runtime" / "rotate" / "et.json").exists())
         self.assertEqual(self.guard(5000)[0], 0)  # handover written: the stop is allowed
 
+    def test_handover_warns_when_the_summary_is_over_the_limit(self):
+        (self.root / "worklog").mkdir(exist_ok=True)
+        (self.root / "worklog" / "et-summary.md").write_text("x" * 9000)
+        draft = self.root / "h.md"
+        draft.write_text("Handover text.")
+        out = io.StringIO()
+        with mock.patch.object(sys, "stdout", out):
+            self.assertEqual(main(["--data-root", str(self.root), "handover", "et", str(draft)]), 0)
+        self.assertIn("handover_summary_chars", out.getvalue())
+        events = [json.loads(l)["event"] for l in (self.root / "journal.jsonl").read_text().splitlines() if l.strip()]
+        self.assertIn("SUMMARY_OVER_LIMIT", events)
+
     def test_executor_rotates_an_idle_tower(self):
         request = self.root / "runtime" / "rotate" / "et.json"
         request.parent.mkdir(parents=True, exist_ok=True)

@@ -623,6 +623,11 @@ A long tower session loses quality and costs more for each turn. A tower gets a 
 |---|---|
 | D17 | Every model call is Opus 5.5 or stronger. Token cost is not a constraint. |
 | D18 | DT and VT use Fable 5.1. ET uses Opus 5.5. |
+| D19 | DT decides engineering questions and publishes them as DT directives (`origin: DT`). The researcher decides research questions, costs above plan, and data deletion. | 2026-11-02 |
+| D20 | The Bash sandbox is the only local boundary of a tower: a sandboxed command needs no allow rule. ET reaches servers directly with ssh, scp, and rsync outside the sandbox. | 2026-11-02 |
+| D21 | A FULL task needs a pilot: a PASS VALIDATION run of the same script at the same commit with `PILOT=1` that went through every stage. | 2026-11-02 |
+| D22 | A handoff names a branch, not a commit. After a code fix, VT binds the new commit in a new PRE_RUN verdict under the same handoff. | 2026-11-02 |
+| D23 | A decision request to the researcher gives the context, the options with their effects and costs, and a recommendation, in plain words. | 2026-11-02 |
 
 Reason for D18: VT is the gate for FULL runs and for result acceptance, so a missed defect becomes a research conclusion. A DT error in design or paper reading spreads to all later work. ET uses the most tokens, and its failures show in run results and VT verdicts.
 
@@ -672,6 +677,18 @@ Reason for D18: VT is the gate for FULL runs and for result acceptance, so a mis
 3. The rendered rules of a suffixed tower end with a "Session names" section that gives the session name of each peer. The message ledger hook blocks a message to a tower name of another suffix (journal entry `blocked: other cycle`) in both directions: `dt_tmp` cannot message `et`, and `et` cannot message `dt_tmp`. A name that is not a tower name, such as the maintenance session, passes. The main cycle does not know that the second cycle exists.
 4. The servers are shared, so the second data root must use its own checkouts: the daemons do not know each other's (server, repo) slots. On 2026-10-27 the clones `/home/vision/dongjun/harness-tmp/<repo>` (container path `/workspace/harness-tmp/<repo>`, outputs `/workspace/harness-tmp/outputs`) were made on a100 and a6000 for `~/harness-data/faculty-opsd-tmp`. GPUs are still shared: ET of each cycle sees the other cycle's processes in gpu-status as external jobs.
 5. Commands take `--data-root <path>` before the subcommand, because `.harness-data-root` points to the main root: `bin/harness --data-root ~/harness-data/faculty-opsd-tmp tower start dt`. The towers themselves get the root from `HARNESS_DATA_ROOT` in their rendered settings.
+
+## 25. Review of the vast.ai experiment (2026-11-02)
+
+The researcher reviewed VLM-VAD-ROLLOUT-001 (2026-10-26 to 11-02): 11 handoff revisions, 112 researcher messages to DT, 16 directives (each with researcher text), 8 ET questions, 0 grants, 57 tasks (38 PASS, 11 FAIL, 8 CANCELLED). Five problems and the decisions D19 to D23:
+
+1. **Authority.** Most directives and ET questions carried engineering decisions (a package pin, a port fix, a retry), and R11 was a revision for one port bug. Now a directive has `origin`: `RESEARCHER` (dt_guard checks the transcript) or `DT` (no check). A DT directive needs the latest APPROVED handoff in `handoff`, counts against `limits.dt_directives_per_handoff` (default 10), and cannot authorize a FULL task (store `_check_task`). DT rules 57 to 63 give the decision table, the fallback table in each handoff, and the grant bundle at revision 1.
+2. **Sandbox.** The denials in the transcripts were permission denials, not sandbox denials: dontAsk mode refused every command outside the allow list (sed, awk, tail, pytest, ssh). Now `sandbox.autoAllowBashIfSandboxed` is on in every tower: a sandboxed command runs, and the sandbox (write scope, network allowlist) is the boundary. Every form of `git push` is denied (`bin/harness git` stays the push path). ET has `ssh *`, `scp *`, `rsync *` in `excludedCommands` and in the allow list; the researcher accepts direct server access because the records and the code live locally and on GitHub, and the servers separate users and containers. ET rules 69 to 72 limit what ET does over ssh. AskUserQuestion is allowed in every tower.
+3. **Pilots.** Four FULL failures (022, 054, 055, 056) came from stages that the 2-step smoke run never reached (a port collision, a memory kill in validation, an input longer than `max_model_len`). A FULL task now needs `pilot`: the PASS result of a VALIDATION task with the same `entrypoint[0]`, the same `commit`, and env `PILOT=1`. The store checks it at publish time; `verify` does not, so older FULL tasks stay valid. ET rules 73 to 75 and VT rule 39 define the stages a pilot must run.
+4. **Granularity.** The store refused a POST_RUN verdict without a result, so R3 existed only to change gate phases. Now a POST_RUN verdict without results is accepted when the handoff is IMPLEMENT_ONLY and the subject names a report. DT rule 60 ends commit pinning in handoffs (the cause of R11): the handoff names the branch and VT binds the commit, so a fix needs a new verdict, not a new revision.
+5. **Explanations.** DT rules 66 to 69 give the order of a decision request and the rule that each ID and term is explained at its first use.
+
+The new settings and rules apply when a tower session starts. The daemon applies the record rules at once.
 
 ## 9. Open decisions
 

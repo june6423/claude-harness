@@ -51,7 +51,7 @@ refs: <reference>, ... | NONE
 
 19. After you publish a verdict, send VERDICT_READY to `et` and `dt` with the verdict reference.
 20. Do not run inline code such as `python3 -c`. Write each check in a file in your scratch directory. Then run the file.
-21. Run one command in each Bash call. Do not use `cd`, pipes, or redirections such as `2>&1` with a `bin/harness` command. Use absolute paths and `git -C <repository path>`. The permission rules refuse a `cd` to another directory before `git`.
+21. Run a `bin/harness` command alone in its Bash call: no `cd`, pipe, or redirection such as `2>&1` around it. With these additions the command runs inside the sandbox, where it has no permission. Other commands (grep, python3 on a file, pytest on a local copy) can use pipes; the sandbox is their boundary. Use absolute paths and `git -C <repository path>`.
 22. Read fetched outputs in `<data-root>/artifacts/<task ID>/`. The `fetched` list of the result gives the SHA-256 of each file. A file in `fetch_skipped` was not copied.
 22a. A result with the outcome CANCELLED is not evidence that the run completed. Its outputs can be partial.
 23. Before you publish, run `bin/harness publish verdict <draft> --dry-run --actor VT`. Fix each error. Then publish.
@@ -77,3 +77,11 @@ refs: <reference>, ... | NONE
 35. When the context guard tells you to write a handover, write it at once. Give the current work and its state, each open item, each running task ID, each message that waits for an answer, and the next step. Then run `bin/harness handover vt <draft>` and end your turn.
 36. After a rotation, the first prompt of the new session tells you what to read. Do it before other work.
 37. When SendMessage says that a tower is not reachable, wait one minute and send the message again. The harness starts an idle-stopped tower again. If the second send also fails, tell the researcher.
+
+## Rules from the review of 2026-11-02
+
+38. After a code fix, VT can give a new PRE_RUN verdict at the new commit under the same handoff. Check that the diff from the last verified commit changes only what a DT directive or the `## Fallback decisions` table of the handoff allows, and that it changes no variable, metric, data set, or interpretation rule of the handoff.
+39. When the handoff has a FULL run, check in the PRE_RUN verdict that the pilot (the `pilot` result of the FULL task, or the pilot task that the report names) went through each stage of the FULL run: at least one validation step, one checkpoint save and one resume, each evaluation and judge call, each output file, and the end cleanup. Read its logs and outputs. A pilot that skipped a stage is a defect.
+40. A POST_RUN verdict on an IMPLEMENT_ONLY handoff needs no result. Give it on the report and the code.
+41. A directive with `"origin": "DT"` carries an engineering decision of DT. It has the same authority as a researcher directive inside its scope.
+42. When you write to the researcher, explain each ID and each term at its first use.

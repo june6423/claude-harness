@@ -87,6 +87,17 @@ class GuardTest(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertIn("'instruction' text", message)
 
+    def test_dt_directive_needs_no_researcher_text(self):
+        front = {"kind": "directive", "target": "et", "scope": "LOCAL_CHANGE", "origin": "DT",
+                 "instruction": "Fix the port collision in init_single_rank.", "experiment_id": "DEMO-3",
+                 "handoff": "HANDOFF-DEMO-3-R1@sha256:" + "0" * 64}
+        self.draft.write_text("---\n" + json.dumps(front) + "\n---\nBody.\n")
+        command = f"bin/harness publish directive {self.draft} --actor DT"
+        self.assertEqual(self.run_guard(self.publish_event(self.transcript(), command))[0], 0)
+        del front["origin"]
+        self.draft.write_text("---\n" + json.dumps(front) + "\n---\nBody.\n")
+        self.assertEqual(self.run_guard(self.publish_event(self.transcript(), command))[0], 2)
+
     def test_missing_transcript_blocks(self):
         self.draft.write_text(handoff())
         code, message = self.run_guard(self.publish_event(str(self.base / "missing.jsonl")))

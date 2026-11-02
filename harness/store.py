@@ -14,7 +14,7 @@ from typing import Any, Iterator
 
 from . import journal
 from .records import (
-    KINDS, NONE, RecordError, extension, kind_of_id, make_ref, parse, parse_ref,
+    EXECUTION_MODES, KINDS, NONE, RecordError, extension, kind_of_id, make_ref, parse, parse_ref,
     serialize, sha256_bytes, validate,
 )
 
@@ -27,6 +27,8 @@ DEFAULT_LIMITS = {"handoff_body_chars": 12000, "report_body_chars": 9000, "verdi
                   # Budgets for each handoff revision. A new revision needs researcher approval,
                   # so the counts start again only after the researcher acts.
                   "run_tasks_per_handoff": 20, "full_tasks_per_handoff": 3, "recovery_attempts": 5,
+                  # Engineering directives that DT publishes without the researcher, for each handoff revision.
+                  "dt_directives_per_handoff": 10,
                   # Cross-session messages from one tower to one peer in 10 minutes.
                   "messages_per_peer_per_10_minutes": 10,
                   # A tower writes a handover and gets a new session at this context size.
@@ -346,6 +348,8 @@ class Store:
         elif kind == "revoke":
             for ref in fields["revokes"]:
                 resolve(ref, "grant")
+        elif kind == "directive" and fields.get("origin") == "DT":
+            self._check_dt_directive(fields, resolve, errors)
         elif kind == "cancel":
             task = resolve(fields["task"], "task")
             if task and self.path_of(f"RESULT-{task.record_id}").exists():
@@ -355,6 +359,52 @@ class Store:
         if errors:
             raise RecordError(errors)
         return extra
+
+    def _check_dt_directive(self, fields: dict[str, Any], resolve, errors: list[str]) -> None:
+        """A DT directive (researcher decision 2026-11-02) carries an engineering decision of DT under
+        the latest APPROVED handoff. It needs no researcher text, so its scope is limited here and in
+        _check_task (no FULL task), and its count is limited for each handoff revision."""
+        handoff = resolve(fields["handoff"], "handoff")
+        if not handoff:
+            return
+        if handoff.fields["status"] != "APPROVED":
+            errors.append("a DT directive needs an APPROVED handoff")
+        if handoff.fields["experiment_id"] != fields["experiment_id"]:
+            errors.append("the DT directive and its handoff name different experiments")
+        latest = self.latest_handoff(fields["experiment_id"])
+        if latest and latest.ref != fields["handoff"]:
+            errors.append(f"a DT directive must name the latest handoff revision {latest.ref}")
+        count = sum(1 for d in self.records("directive")
+                    if d.fields.get("origin") == "DT" and d.fields.get("handoff") == fields["handoff"])
+        limit = self.limits()["dt_directives_per_handoff"]
+        if count >= limit:
+            errors.append(f"the handoff already has {count} DT directives. The limit is {limit} "
+                          "(dt_directives_per_handoff). Ask the researcher for a new handoff revision")
+
+    def _check_pilot(self, fields: dict[str, Any], resolve, errors: list[str]) -> None:
+        """A FULL run needs a pilot (researcher decision 2026-11-02): a PASS VALIDATION run of the same
+        script at the same commit with env PILOT=1, so that each stage ran once on a small subset."""
+        pilot_ref = fields.get("pilot", NONE)
+        if pilot_ref == NONE:
+            errors.append("a FULL task needs 'pilot': the reference of the PASS result of a VALIDATION run of "
+                          "the same script at the same commit with env PILOT=1")
+            return
+        result = resolve(pilot_ref, "result")
+        if not result:
+            return
+        checks = [(result.fields.get("outcome") == "PASS", "the pilot result is not PASS")]
+        pilot = resolve(result.fields["task"], "task")
+        if pilot:
+            p = pilot.fields
+            checks += [
+                (p.get("mode") in EXECUTION_MODES and p.get("execution_class") == "VALIDATION",
+                 "the pilot is not a VALIDATION run"),
+                (p.get("commit") == fields["commit"], "the pilot ran a different commit"),
+                ((p.get("entrypoint") or [None])[0] == fields["entrypoint"][0], "the pilot ran a different script"),
+                ((p.get("env") or {}).get("PILOT") == "1", "the pilot task has no env PILOT=1"),
+                (p.get("experiment_id") == fields["experiment_id"], "the pilot names a different experiment"),
+            ]
+        errors.extend(message for passed, message in checks if not passed)
 
     def _check_task(self, fields: dict[str, Any], resolve, errors: list[str]) -> None:
         handoff = None
@@ -385,6 +435,11 @@ class Store:
                                   f"the directive has {directive.fields['scope']}")
                 if directive.fields["experiment_id"] not in (NONE, fields["experiment_id"]):
                     errors.append("the directive names a different experiment")
+                if directive.fields.get("origin") == "DT" and fields["execution_class"] == "FULL":
+                    errors.append("a DT directive cannot authorize a FULL task. A FULL task needs the handoff "
+                                  "and a VALID PRE_RUN verdict")
+        if fields["execution_class"] == "FULL" and fields["mode"] in EXECUTION_MODES:
+            self._check_pilot(fields, resolve, errors)
         if fields["execution_class"] == "FULL" and fields["pre_run_verdict"] != NONE:
             verdict = resolve(fields["pre_run_verdict"], "verdict")
             if verdict:
@@ -438,6 +493,13 @@ class Store:
             resolve(ref, "result")
         if not handoff:
             return "NOT_VALID"
+        if fields["phase"] == "POST_RUN" and not subject["results"]:
+            # An IMPLEMENT_ONLY handoff has no server task, so its POST_RUN verdict rests on the report
+            # (seen 2026-10-27: a revision was made only to change gate phases).
+            if handoff.fields["authorization"] != "IMPLEMENT_ONLY":
+                errors.append("a POST_RUN verdict needs at least one result unless the handoff is IMPLEMENT_ONLY")
+            elif subject["report"] == NONE:
+                errors.append("a POST_RUN verdict without results needs a report")
         expected = {g["id"] for g in handoff.fields["gates"] if g["phase"] == fields["phase"]}
         given = {g["id"] for g in fields["gates"]}
         if not expected:

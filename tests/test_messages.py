@@ -201,6 +201,16 @@ class TowerCommandTest(unittest.TestCase):
                 self.assertIn(f"Bash({REPO_ROOT}/bin/harness executor *)", settings["permissions"]["deny"])
                 self.assertIn(f"Bash(./bin/harness root)", settings["permissions"]["allow"])
             dt = json.loads(render_settings("dt", root).read_text())
+            # The sandbox is the boundary (2026-11-02): sandboxed commands need no allow rule, pushes stay denied.
+            for name in TOWERS:
+                rendered = json.loads(render_settings(name, root).read_text())
+                self.assertTrue(rendered["sandbox"]["autoAllowBashIfSandboxed"])
+                self.assertIn("AskUserQuestion", rendered["permissions"]["allow"])
+                self.assertIn("Bash(git * push *)", rendered["permissions"]["deny"])
+            et = json.loads(render_settings("et", root).read_text())
+            self.assertIn("ssh *", et["sandbox"]["excludedCommands"])  # ET reaches servers directly
+            self.assertIn("Bash(ssh *)", et["permissions"]["allow"])
+            self.assertNotIn("ssh *", dt["sandbox"]["excludedCommands"])
             self.assertNotIn(f"Read(/{root}/workspace/**)", dt["permissions"]["deny"])  # DT reads code (option B)
             self.assertIn(f"Edit(/{root}/workspace/**)", dt["permissions"]["deny"])
             self.assertNotIn(f"{root}/workspace", dt["sandbox"]["filesystem"]["denyRead"])

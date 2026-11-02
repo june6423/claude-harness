@@ -96,6 +96,15 @@ setsid nohup bin/harness --data-root $T executor watch >> $T/runtime/logs/execut
 
 서버는 공유하므로 임시 사이클은 서버에서 자기 checkout(`harness-tmp/<repo>`)만 씁니다. GPU는 공유됩니다. 임시 사이클을 끝낼 때는 Tower 세 개를 stop하고 그 daemon을 PID로 종료하면 됩니다. 데이터 경로는 남겨 두어도 됩니다.
 
+## 2.7 2026-11-02 검토 뒤 달라진 운영
+
+- **연구자가 결정하는 것:** 연구 질문·변수·지표·해석 기준·데이터셋의 변경, 실험 중단, 계획 밖 비용, 데이터 삭제. 나머지 엔지니어링 결정은 DT가 내리고 `origin: DT` directive로 ET에 지시합니다. 연구자는 요약만 받습니다.
+- **승인 횟수:** 실험 R1 승인 때 DT가 standing grant 묶음을 함께 제안합니다. 한 문장으로 handoff와 grant를 같이 승인하면 됩니다. 코드 수정 뒤에는 revision 없이 VT 재판정으로 FULL이 다시 시작됩니다.
+- **pilot:** FULL task는 같은 commit·같은 스크립트를 작은 subset으로 끝까지 돌린 pilot(PASS)이 있어야 게시됩니다. ET가 자동으로 합니다.
+- **ET의 서버 접근:** ET는 ssh·scp·rsync로 서버에 직접 접속해 로그·GPU·파일을 보고 결과를 내려받습니다. harness checkout과 실행 중인 task의 출력은 건드리지 않습니다.
+- **Tower의 로컬 명령:** 샌드박스 안에서 도는 명령(검색, 파일 확인, 버전 확인, 로컬 테스트)은 모두 허용됩니다. 쓰기 범위와 네트워크는 샌드박스가 막습니다. `git push`는 모든 형태가 거부되고 `bin/harness git`만 씁니다.
+- **결정 요청 형식:** DT는 배경 → 무슨 일 → 선택지별 영향·비용 → 추천 → 기본값 순서로 묻고, ID와 용어는 처음 나올 때 풀어 씁니다. 선택지가 있으면 AskUserQuestion으로 묻습니다.
+
 ## 3. 진행 확인
 
 ```bash

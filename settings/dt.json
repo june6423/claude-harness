@@ -11,6 +11,7 @@
       "ListAgents",
       "Skill",
       "ToolSearch",
+      "AskUserQuestion",
       "Bash(bin/harness root)",
       "Bash(bin/harness show *)",
       "Bash(bin/harness list)",
@@ -53,13 +54,17 @@
       "Bash(bin/harness --data-root *)",
       "Read(/{{DATA_ROOT}}/runtime/logs/**)",
       "Bash(bin/harness git *)",
-      "Edit(/{{DATA_ROOT}}/workspace/**)"
+      "Edit(/{{DATA_ROOT}}/workspace/**)",
+      "Bash(git push*)",
+      "Bash(git * push)",
+      "Bash(git * push *)"
     ]
   },
   "sandbox": {
     "enabled": true,
     "failIfUnavailable": true,
     "allowUnsandboxedCommands": false,
+    "autoAllowBashIfSandboxed": true,
     "excludedCommands": [
       "bin/harness *",
       "./bin/harness *",

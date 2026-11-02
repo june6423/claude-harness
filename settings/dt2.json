@@ -10,6 +10,7 @@
       "ListAgents",
       "Skill",
       "ToolSearch",
+      "AskUserQuestion",
       "Bash(bin/harness root)",
       "Bash(bin/harness show *)",
       "Bash(bin/harness list)",
@@ -53,13 +54,17 @@
       "Edit(/{{DATA_ROOT}}/records/**)",
       "Edit(/{{DATA_ROOT}}/worklog/dt.md)",
       "Edit(/{{DATA_ROOT}}/worklog/dt-summary.md)",
-      "Bash(bin/harness cancel *)"
+      "Bash(bin/harness cancel *)",
+      "Bash(git push*)",
+      "Bash(git * push)",
+      "Bash(git * push *)"
     ]
   },
   "sandbox": {
     "enabled": true,
     "failIfUnavailable": true,
     "allowUnsandboxedCommands": false,
+    "autoAllowBashIfSandboxed": true,
     "excludedCommands": [
       "bin/harness *",
       "./bin/harness *",

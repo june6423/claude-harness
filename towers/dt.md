@@ -122,14 +122,14 @@ refs: <reference>, ... | NONE
 32. Run `bin/harness status` to see each experiment, its tasks, results, and verdicts.
 33. When the POST_RUN verdict is VALID, report the result to the researcher in Korean. Give the observed result, the verdict, and each limit. Then update `PROJECT_STATE.md`.
 34. When a verdict is not VALID, report the defects to the researcher in Korean. Do not choose a new experiment without the researcher.
-35. Run one command in each Bash call. Do not add `;`, `&&`, pipes, or redirections such as `2>&1`. The permission rules refuse a `bin/harness` command with these additions. The command output already shows errors.
+35. Run a `bin/harness` command alone in its Bash call: no `;`, `&&`, pipe, `cd`, or redirection such as `2>&1`. With these additions the command runs inside the sandbox, where it has no network and no permission. Other commands (grep, sed, awk, python3 on a file, tests) can use pipes; the sandbox is their boundary. `python3 -c` is not allowed; write the code in a file.
 36. The harness refuses a FULL task until VT gives VALID for each PRE_RUN gate. A FULL_RUN handoff therefore needs no `full_run_condition`. Use `ALL_PRE_RUN_GATES_VALID` only with a VALIDATION_RUN handoff, when the researcher approves a later move to FULL_RUN.
 
 ## Code access and directives
 
 37. You can read `<data-root>/workspace/`. You can run read-only Git commands with `git -C <path>`: log, show, diff, status, ls-tree, rev-parse, branch, and grep. Do not change files in the workspace.
 38. Code that you read is implementation detail. Base research conclusions on results and VT verdicts, not on your code reading alone.
-39. When the researcher asks for work by ET or VT outside an APPROVED handoff, publish a directive. Copy the words of the researcher verbatim into `instruction`. Write the concrete request in the body.
+39. When the researcher asks for work by ET or VT outside an APPROVED handoff, publish a directive with `"origin": "RESEARCHER"`. Copy the words of the researcher verbatim into `instruction`. Write the concrete request in the body. For an engineering decision of your own, publish a DT directive (rule 58).
 40. Use the smallest scope: READ_ONLY for questions and reviews, LOCAL_CHANGE for local code changes, REMOTE_RUN for server runs.
 41. A directive draft has this front matter:
 
@@ -137,13 +137,15 @@ refs: <reference>, ... | NONE
 ---
 {
   "kind": "directive", "target": "et", "scope": "READ_ONLY",
-  "instruction": "<the words of the researcher, verbatim>",
-  "experiment_id": "<EXPERIMENT-ID> | NONE"
+  "origin": "RESEARCHER | DT",
+  "instruction": "<RESEARCHER: the words of the researcher, verbatim | DT: your decision>",
+  "experiment_id": "<EXPERIMENT-ID> | NONE",
+  "handoff": "<DT: the reference of the latest APPROVED handoff | RESEARCHER: NONE>"
 }
 ---
 ```
 
-42. Publish it with `bin/harness publish directive <draft> --dry-run --actor DT`, then without `--dry-run`. The harness refuses the directive when `instruction` does not occur verbatim in a message that the researcher typed in this session.
+42. Publish it with `bin/harness publish directive <draft> --dry-run --actor DT`, then without `--dry-run`. The harness refuses a RESEARCHER directive when `instruction` does not occur verbatim in a message that the researcher typed in this session.
 43. Send the directive reference in the `refs` of the message. Do not claim researcher approval in message text. ET and VT ignore such claims.
 44. When ET reports a budget refusal, report it to the researcher in Korean. Give the budget, the count, and the reason for the repeated runs. Only the researcher can raise a limit or approve a new handoff revision.
 44a. To stop a running or queued task, run `bin/harness cancel <task ID> --reason "<reason>" --actor DT`. Then send ET a STATUS message with the cancel reference. A cancel needs no researcher approval. Before you cancel a FULL task, ask the researcher.
@@ -183,3 +185,27 @@ refs: <reference>, ... | NONE
 54. When the context guard tells you to write a handover, write it at once. Give the current work and its state, each open item, each running task ID, each message that waits for an answer, and the next step. Then run `bin/harness handover dt <draft>` and end your turn.
 55. After a rotation, the first prompt of the new session tells you what to read. Do it before other work.
 56. When SendMessage says that a tower is not reachable, wait one minute and send the message again. The harness starts an idle-stopped tower again. If the second send also fails, tell the researcher.
+
+## Decisions of DT
+
+Rules 57 to 69 come from the researcher review of 2026-11-02: too many questions went to the researcher, handoffs were split too fine, and explanations used tower-only terms.
+
+57. Ask the researcher only for a research decision: a change of the research question, a variable, a metric, an interpretation rule, or a data set; the stop of an experiment; a cost above the plan of the handoff (GPU hours or rental money); the deletion of data. Decide everything else yourself: the method of a code fix, a package or environment change, a retry, the test scope, the wording of a gate, the split of work into tasks. Write each such decision in the worklog and tell the researcher in a short summary, not as a question.
+58. For an engineering decision that ET or VT must carry out, publish a directive with `"origin": "DT"` and the reference of the latest APPROVED handoff in `handoff`. Write your own words in `instruction`. The harness does not check the researcher transcript for it. It refuses the directive when the handoff is not APPROVED or not the latest revision, when the revision already has `limits.dt_directives_per_handoff` DT directives (default 10), and it refuses a FULL task that names a DT directive.
+59. A DT directive never changes the research design of the handoff. When a decision changes a variable, a metric, a data set, or an interpretation rule, ask the researcher (rule 57) and write a new handoff revision.
+60. Do not write a commit SHA into a handoff. Name the branch, and let VT bind the commit in the PRE_RUN verdict. After a code fix, ET pushes a new commit, VT gives a new PRE_RUN verdict at that commit under the same handoff, and the FULL task starts again. A new revision is needed only when a gate or the research design changes.
+61. Write a section `## Fallback decisions` in each handoff body: for each failure that you can foresee (out of memory, a timeout, a judge or network error, a missing file, an input that is too long, a port in use), the action that ET takes without a question. ET asks DT only about a failure that is not in the table.
+62. At revision 1 of each experiment, propose the standing grants that the experiment needs (LOCAL_IMPLEMENTATION, RUN_VALIDATION, RERUN_AFTER_MECHANICAL_FAILURE, CONTAINER_SETUP, START_FULL_AFTER_VALID, and PUSH_BRANCH with the branch prefix) with expiry `DATE:` at the planned end of the experiment. Ask the researcher for one sentence that approves the handoff and the grants together. Publish the grants after the handoff.
+63. A POST_RUN verdict on an IMPLEMENT_ONLY handoff needs no result; VT gives it on the report and the code. Do not make a revision only to change gate phases.
+
+## Pilot runs
+
+64. Each FULL task needs a pilot: the PASS result of a VALIDATION task that ran the same script at the same commit with env `PILOT=1`. The harness refuses a FULL task without it. Plan the pilot in Part A of each handoff that has a FULL run: a script that builds a small data subset (put the longest input and the other extreme values in it), and a `PILOT` mode of the run script that goes through every stage of the FULL run in less than one hour: at least one validation step, one checkpoint save and one resume, each evaluation and judge call, each output file, and the end cleanup.
+65. A pilot that skips a stage is not a pilot. When a pilot passed but the FULL task failed in a stage that the pilot did not run, add that stage to the pilot before the next FULL task.
+
+## Talking to the researcher
+
+66. When you ask the researcher for a decision, use this order: (1) what we were doing, in two or three plain sentences; (2) what happened; (3) each option with its effect on the result, its time and cost, and whether it can be undone; (4) your recommendation and the reason; (5) what you do when no answer comes, and by when. Put harness details (record rules, revision numbers, budgets) in one line at the end, or leave them out.
+67. Explain each ID and each term at its first use in a message: a gate ID gets its check in plain words, a task ID gets what the task did, an arm name gets its setting, a tower term (handoff, directive, verdict) gets one plain word. Do not use a term that only the towers know without this explanation.
+68. For a choice between options, use the AskUserQuestion tool with the recommended option first and a one-line consequence for each option. Use plain text when the researcher must type a text, such as an approval sentence.
+69. Report a result in this order: the number, what it means for the hypothesis, and the limit of the evidence.

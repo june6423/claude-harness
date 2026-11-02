@@ -60,6 +60,23 @@ class StoreTest(unittest.TestCase):
     def publish_verdict(self, handoff):
         return self.store.publish("verdict", fixture("verdict_pre_run.md", HANDOFF_REF=handoff.ref), "VT")
 
+    def publish_pilot(self, task_text, **changes):
+        """The PASS result of a VALIDATION run of the same script and commit with PILOT=1 (the pilot rule)."""
+        fields = json.loads(task_text)
+        pilot = {**fields, "execution_class": "VALIDATION", "pre_run_verdict": "NONE",
+                 "env": {**fields["env"], "PILOT": "1"}, **changes}
+        pilot.pop("pilot", None)
+        task = self.store.publish("task", json.dumps(pilot), "ET")
+        result = {"kind": "result", "task": task.ref, "transport": "OK", "preflight": "PASS", "exit_code": 0,
+                  "outcome": "PASS", "git": {}, "runtime": {}, "outputs": [], "missing_outputs": [],
+                  "started_at": "x", "ended_at": "y", "logs": {}, "message": "NONE"}
+        return self.store.publish("result", json.dumps(result), "EXECUTOR").ref
+
+    def full_task(self, handoff, verdict):
+        """A FULL task text with its pilot published."""
+        text = fixture("task_transplant_full.json", HANDOFF_REF=handoff.ref, VERDICT_REF=verdict.ref)
+        return edit_json(text, pilot=self.publish_pilot(text))
+
     # Exit criterion 2: converted records are accepted.
 
     def test_converted_handoff_verdict_and_task(self):
@@ -67,9 +84,8 @@ class StoreTest(unittest.TestCase):
         self.assertEqual(handoff.record_id, "HANDOFF-VLM-OPSD-TRANSPLANT-001-R1")
         verdict = self.publish_verdict(handoff)
         self.assertEqual(verdict.fields["overall"], "VALID")
-        task = self.store.publish("task", fixture("task_transplant_full.json", HANDOFF_REF=handoff.ref,
-                                                  VERDICT_REF=verdict.ref), "ET")
-        self.assertEqual(task.record_id, "TASK-VLM-OPSD-TRANSPLANT-001-001")
+        task = self.store.publish("task", self.full_task(handoff, verdict), "ET")
+        self.assertEqual(task.record_id, "TASK-VLM-OPSD-TRANSPLANT-001-002")  # 001 is the pilot
         self.assertEqual(self.store.verify(), [])
 
     def test_records_are_read_only_and_journaled(self):
@@ -151,8 +167,7 @@ class StoreTest(unittest.TestCase):
             text, authorization="VALIDATION_RUN", full_run_condition="ALL_PRE_RUN_GATES_VALID"), "DT")
         verdict = self.store.publish("verdict", fixture("verdict_pre_run.md", HANDOFF_REF=validation.ref), "VT")
         full = self.store.publish("handoff", edit_markdown(text, revision=2, predecessor=validation.ref), "DT")
-        task = fixture("task_transplant_full.json", HANDOFF_REF=full.ref, VERDICT_REF=verdict.ref)
-        self.store.publish("task", task, "ET")
+        self.store.publish("task", self.full_task(full, verdict), "ET")
         changed = parse("handoff", text)[0]["gates"]
         changed[0]["check"] = "A different check."
         third = self.store.publish("handoff", edit_markdown(text, revision=3, predecessor=full.ref, gates=changed), "DT")
@@ -195,8 +210,7 @@ class StoreTest(unittest.TestCase):
     def test_result_outcome_rule(self):
         handoff = self.publish_handoff()
         verdict = self.publish_verdict(handoff)
-        task = self.store.publish("task", fixture("task_transplant_full.json", HANDOFF_REF=handoff.ref,
-                                                  VERDICT_REF=verdict.ref), "ET")
+        task = self.store.publish("task", self.full_task(handoff, verdict), "ET")
         result = {"kind": "result", "task": task.ref, "transport": "OK", "preflight": "PASS", "exit_code": 0,
                   "outcome": "PASS", "git": {}, "runtime": {}, "outputs": [], "missing_outputs": ["run/metrics.json"],
                   "started_at": "x", "ended_at": "y", "logs": {}, "message": "NONE"}
@@ -210,8 +224,7 @@ class StoreTest(unittest.TestCase):
     def test_cancelled_result_needs_its_cancel(self):
         handoff = self.publish_handoff()
         verdict = self.publish_verdict(handoff)
-        task = self.store.publish("task", fixture("task_transplant_full.json", HANDOFF_REF=handoff.ref,
-                                                  VERDICT_REF=verdict.ref), "ET")
+        task = self.store.publish("task", self.full_task(handoff, verdict), "ET")
         cancel = self.store.publish("cancel", markdown({"kind": "cancel", "task": task.ref, "reason": "Stop."}), "ET")
         self.assertEqual(cancel.record_id, f"CANCEL-{task.record_id}")
         result = {"kind": "result", "task": task.ref, "transport": "OK", "preflight": "PASS", "exit_code": None,
@@ -257,20 +270,92 @@ class StoreTest(unittest.TestCase):
     def test_budgets_per_handoff(self):
         os.chmod(self.root / "config.json", 0o644)
         (self.root / "config.json").write_text(json.dumps(
-            {"limits": {"run_tasks_per_handoff": 2, "full_tasks_per_handoff": 1, "recovery_attempts": 1}}))
+            {"limits": {"run_tasks_per_handoff": 3, "full_tasks_per_handoff": 1, "recovery_attempts": 1}}))
         handoff = self.publish_handoff()
         verdict = self.publish_verdict(handoff)
-        task = json.loads(fixture("task_transplant_full.json", HANDOFF_REF=handoff.ref, VERDICT_REF=verdict.ref))
+        task = json.loads(self.full_task(handoff, verdict))  # the pilot is the first run task
         first = self.store.publish("task", json.dumps(task), "ET")
         self.assertRefused("task", json.dumps(task), "full_tasks_per_handoff")
-        validation = dict(task, execution_class="VALIDATION", pre_run_verdict="NONE",
+        validation = dict(task, execution_class="VALIDATION", pre_run_verdict="NONE", pilot="NONE",
                           lineage={"parent": first.record_id, "recovery_of": first.record_id, "attempt": 2})
         self.assertRefused("task", json.dumps(validation), "recovery_attempts")
         validation["lineage"]["attempt"] = 1
         self.store.publish("task", json.dumps(validation), "ET")
         self.assertRefused("task", json.dumps(validation), "run_tasks_per_handoff")
         self.assertEqual(self.store.budget_usage(handoff.ref),
-                         {"run_tasks": 2, "full_tasks": 1, "max_recovery_attempt": 1})
+                         {"run_tasks": 3, "full_tasks": 1, "max_recovery_attempt": 1})
+
+    def test_full_task_needs_a_pilot_of_the_same_script_and_commit(self):
+        handoff = self.publish_handoff()
+        verdict = self.publish_verdict(handoff)
+        text = fixture("task_transplant_full.json", HANDOFF_REF=handoff.ref, VERDICT_REF=verdict.ref)
+        self.assertRefused("task", text, "a FULL task needs 'pilot'")
+        other_script = self.publish_pilot(text, entrypoint=["scripts/other.sh"])
+        self.assertRefused("task", edit_json(text, pilot=other_script), "the pilot ran a different script")
+        no_flag = self.publish_pilot(text, env={})
+        self.assertRefused("task", edit_json(text, pilot=no_flag), "the pilot task has no env PILOT=1")
+        good = self.publish_pilot(text)
+        full = self.store.publish("task", edit_json(text, pilot=good), "ET")
+        self.assertEqual(full.fields["pilot"], good)
+        # a fix moves the commit: the old pilot no longer counts
+        verdict2 = self.store.publish("verdict", edit_markdown(
+            fixture("verdict_pre_run.md", HANDOFF_REF=handoff.ref),
+            subject={"commit": "b" * 40, "report": "NONE", "results": []}), "VT")
+        moved = edit_json(text, commit="b" * 40, pre_run_verdict=verdict2.ref, pilot=good)
+        self.assertRefused("task", moved, "the pilot ran a different commit")
+        self.assertRefused("task", edit_json(edit_json(text, execution_class="VALIDATION", pre_run_verdict="NONE"),
+                                             pilot=good), "only a FULL task can have a pilot")
+
+    def test_dt_directive(self):
+        handoff = self.publish_handoff()
+        front = {"kind": "directive", "target": "et", "scope": "REMOTE_RUN", "origin": "DT",
+                 "instruction": "Install transformers 5.16.1 in the judge environment.",
+                 "experiment_id": "VLM-OPSD-TRANSPLANT-001", "handoff": handoff.ref}
+        self.assertRefused("directive", markdown({k: v for k, v in front.items() if k != "handoff"}),
+                           "a DT directive needs 'handoff'", "DT")
+        directive = self.store.publish("directive", markdown(front, "Pin the judge package.\n"), "DT")
+        self.assertEqual(directive.fields["origin"], "DT")
+        # a DT directive cannot authorize a FULL task
+        verdict = self.publish_verdict(handoff)
+        full = json.loads(self.full_task(handoff, verdict))
+        self.assertRefused("task", json.dumps(dict(full, directive=directive.ref)),
+                           "a DT directive cannot authorize a FULL task")
+        validation = dict(full, execution_class="VALIDATION", pre_run_verdict="NONE", directive=directive.ref)
+        validation.pop("pilot")
+        self.store.publish("task", json.dumps(validation), "ET")
+        # it must name the latest APPROVED revision
+        second = self.store.publish("handoff", edit_markdown(
+            fixture("handoff_transplant.md"), revision=2, predecessor=handoff.ref, status="DRAFT",
+            approval="NONE"), "DT")
+        self.assertRefused("directive", markdown(front), "must name the latest handoff revision", "DT")
+        self.assertRefused("directive", markdown(dict(front, handoff=second.ref)), "needs an APPROVED handoff", "DT")
+        # the count is limited for each revision
+        os.chmod(self.root / "config.json", 0o644)
+        (self.root / "config.json").write_text(json.dumps({"limits": {"dt_directives_per_handoff": 1}}))
+        third = self.store.publish("handoff", edit_markdown(
+            fixture("handoff_transplant.md"), revision=3, predecessor=second.ref), "DT")
+        self.store.publish("directive", markdown(dict(front, handoff=third.ref)), "DT")
+        self.assertRefused("directive", markdown(dict(front, handoff=third.ref)), "dt_directives_per_handoff", "DT")
+
+    def test_post_run_verdict_without_results_only_for_implement_only(self):
+        handoff = self.publish_handoff()  # FULL_RUN
+        front, body = parse("verdict", fixture("verdict_pre_run.md", HANDOFF_REF=handoff.ref))
+        post_gates = [g["id"] for g in handoff.fields["gates"] if g["phase"] == "POST_RUN"]
+        report = self.store.publish("report", markdown(
+            {"kind": "report", "experiment_id": "VLM-OPSD-TRANSPLANT-001", "handoff": handoff.ref,
+             "commits": [COMMIT], "tasks": [], "results": []},
+            "## Changes\n\nx\n\n## Evidence\n\nx\n\n## Proposals\n\nNONE\n\n## Deviations\n\nNONE\n"), "ET")
+        front.update(phase="POST_RUN", subject={"commit": COMMIT, "report": report.ref, "results": []},
+                     gates=[{"id": g, "verdict": "VALID", "evidence": ["Checked."]} for g in post_gates])
+        self.assertRefused("verdict", markdown(front, body), "unless the handoff is IMPLEMENT_ONLY", "VT")
+        implement = self.store.publish("handoff", edit_markdown(
+            fixture("handoff_transplant.md"), revision=2, predecessor=handoff.ref, authorization="IMPLEMENT_ONLY",
+            gates=[{"id": "G1", "phase": "POST_RUN", "check": "The code is reviewed."}]), "DT")
+        front.update(handoff=implement.ref, gates=[{"id": "G1", "verdict": "VALID", "evidence": ["Read."]}])
+        self.assertRefused("verdict", markdown(dict(front, subject={"commit": COMMIT, "report": "NONE", "results": []}),
+                                               body), "without results needs a report", "VT")
+        verdict = self.store.publish("verdict", markdown(front, body), "VT")
+        self.assertEqual(verdict.fields["overall"], "VALID")
 
     def test_ref_format(self):
         with self.assertRaises(RecordError):

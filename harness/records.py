@@ -37,6 +37,9 @@ OUTCOMES = ("PASS", "FAIL", "REJECTED", "INTERRUPTED", "CANCELLED")
 REPORT_SECTIONS = ("Changes", "Evidence", "Proposals", "Deviations")
 DIRECTIVE_TARGETS = ("et", "vt")
 DIRECTIVE_SCOPES = ("READ_ONLY", "LOCAL_CHANGE", "REMOTE_RUN")
+# RESEARCHER: the instruction is the researcher's text (dt_guard checks the transcript).
+# DT: an engineering decision of DT under the latest APPROVED handoff; it cannot authorize a FULL task.
+DIRECTIVE_ORIGINS = ("RESEARCHER", "DT")
 GRANT_HOLDERS = ("et", "vt")
 # Standing authority that a tower can use without asking the researcher again.
 # A grant never covers a research decision, a handoff approval, or a budget increase.
@@ -264,7 +267,7 @@ def validate_task(fields: dict[str, Any], body: str = "") -> list[str]:
     c.keys(("kind", "experiment_id", "handoff", "source", "user_request", "mode", "execution_class",
             "server", "repo", "branch", "commit", "runtime", "entrypoint", "instructions", "env",
             "output_root", "required_outputs", "gpu", "timeout_seconds", "pre_run_verdict", "lineage"),
-           ("id", "fetch_outputs", "directive"))
+           ("id", "fetch_outputs", "directive", "pilot"))
     _common(c, "task")
     c.pattern("experiment_id", EXPERIMENT_RE, "an upper-case experiment ID")
     c.ref("handoff", allow_none=True)
@@ -280,6 +283,7 @@ def validate_task(fields: dict[str, Any], body: str = "") -> list[str]:
     c.integer("timeout_seconds", 1, MAX_TIMEOUT_SECONDS)
     c.ref("pre_run_verdict", allow_none=True)
     c.ref("directive", allow_none=True)
+    c.ref("pilot", allow_none=True)
 
     mode = fields.get("mode")
     execution = mode in EXECUTION_MODES
@@ -389,6 +393,8 @@ def validate_task(fields: dict[str, Any], body: str = "") -> list[str]:
         c.error("a FULL task needs a pre_run_verdict reference")
     if fields.get("execution_class") != "FULL" and fields.get("pre_run_verdict") not in (NONE, None):
         c.error("only a FULL task can have a pre_run_verdict")
+    if fields.get("execution_class") != "FULL" and fields.get("pilot") not in (NONE, None):
+        c.error("only a FULL task can have a pilot")
 
     lineage = fields.get("lineage")
     if "lineage" in fields:
@@ -505,8 +511,7 @@ def validate_verdict(fields: dict[str, Any], body: str) -> list[str]:
             s.string_list("results", REF_RE, "a record reference")
             if fields.get("phase") == "PRE_RUN" and subject.get("commit") == NONE:
                 s.error("a PRE_RUN verdict needs a commit")
-            if fields.get("phase") == "POST_RUN" and not subject.get("results"):
-                s.error("a POST_RUN verdict needs at least one result")
+            # A POST_RUN verdict without results is checked against the handoff in Store._check_verdict.
         c.errors.extend(s.errors)
     gates = fields.get("gates")
     if "gates" in fields:
@@ -532,12 +537,19 @@ def validate_verdict(fields: dict[str, Any], body: str) -> list[str]:
 
 def validate_directive(fields: dict[str, Any], body: str) -> list[str]:
     c = Checker(fields)
-    c.keys(("kind", "target", "scope", "instruction", "experiment_id"), ("id",))
+    c.keys(("kind", "target", "scope", "instruction", "experiment_id"), ("id", "origin", "handoff"))
     _common(c, "directive")
     c.choice("target", DIRECTIVE_TARGETS)
     c.choice("scope", DIRECTIVE_SCOPES)
+    c.choice("origin", DIRECTIVE_ORIGINS)
     c.text("instruction")
     c.pattern("experiment_id", EXPERIMENT_RE, "an upper-case experiment ID", allow_none=True)
+    c.ref("handoff", allow_none=True)
+    if fields.get("origin") == "DT":
+        if fields.get("handoff", NONE) == NONE:
+            c.error("a DT directive needs 'handoff': the reference of the latest APPROVED handoff")
+        if fields.get("experiment_id") == NONE:
+            c.error("a DT directive needs an experiment_id")
     if not body.strip():
         c.error("directive body must not be empty. Write the concrete request")
     return c.errors

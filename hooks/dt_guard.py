@@ -97,6 +97,8 @@ def check_publish(event: dict) -> int:
         if fields.get("status") != "APPROVED":
             return 0
         field = "approval"
+    elif kind == "directive" and fields.get("origin") == "DT":
+        return 0  # an engineering decision of DT; the CLI limits its scope and count
     else:
         field = "instruction"
     approval = normalize(str(fields.get(field, "")))

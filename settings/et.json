@@ -11,6 +11,7 @@
       "ListAgents",
       "Skill",
       "ToolSearch",
+      "AskUserQuestion",
       "Bash(bin/harness root)",
       "Bash(bin/harness show *)",
       "Bash(bin/harness list)",
@@ -38,7 +39,10 @@
       "Bash(bin/harness handover et *)",
       "Bash(bin/harness grants)",
       "Bash(bin/harness grants *)",
-      "Bash(bin/harness cancel * --actor ET)"
+      "Bash(bin/harness cancel * --actor ET)",
+      "Bash(ssh *)",
+      "Bash(scp *)",
+      "Bash(rsync *)"
     ],
     "deny": [
       "Edit(/{{HARNESS}}/**)",
@@ -63,17 +67,24 @@
       "Bash(git * push file*)",
       "Bash(git * push /*)",
       "Bash(git * push --repo*)",
-      "Bash(git * -c *)"
+      "Bash(git * -c *)",
+      "Bash(git push*)",
+      "Bash(git * push)",
+      "Bash(git * push *)"
     ]
   },
   "sandbox": {
     "enabled": true,
     "failIfUnavailable": true,
     "allowUnsandboxedCommands": false,
+    "autoAllowBashIfSandboxed": true,
     "excludedCommands": [
       "bin/harness *",
       "./bin/harness *",
-      "{{HARNESS}}/bin/harness *"
+      "{{HARNESS}}/bin/harness *",
+      "ssh *",
+      "scp *",
+      "rsync *"
     ],
     "filesystem": {
       "allowWrite": [

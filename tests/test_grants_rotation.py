@@ -161,6 +161,33 @@ class KeepAliveTest(unittest.TestCase):
         with mock.patch.object(tower, "named", return_value=[]):
             self.assertIsNone(tower.reaped("et"))             # removed by 'harness tower stop'
 
+    def test_restart_holds_the_keep_alive(self):
+        import time
+        from harness import tower
+        executor = Executor(Store(self.root))
+        session = {"id": "a", "sessionId": "a-full"}
+        hold = tower.keepalive_hold("et", self.root)
+        hold.parent.mkdir(parents=True)
+        hold.write_text(str(time.time()))
+        with mock.patch("harness.tower.reaped", side_effect=lambda name: session if name == "et" else None), \
+                mock.patch("harness.tower.respawn") as respawn:
+            self.assertEqual(executor.revive_towers(), [])  # et is held
+            respawn.assert_not_called()
+        hold.write_text(str(time.time() - 1000))  # a stale hold from a crashed restart does not block
+        with mock.patch("harness.tower.reaped", side_effect=lambda name: session if name == "et" else None), \
+                mock.patch("harness.tower.respawn") as respawn:
+            self.assertEqual(executor.revive_towers(), ["et"])
+        # start(replace=True) writes the hold before the stop and removes it at the end
+        with mock.patch.object(tower, "stop") as stop, mock.patch.object(tower, "named", return_value=[]), \
+                mock.patch.object(tower, "running", return_value={"id": "n"}), \
+                mock.patch("subprocess.run") as run:
+            def check_hold(*args, **kwargs):
+                self.assertTrue(tower.keepalive_held("et", self.root))
+            stop.side_effect = check_hold
+            tower.start("et", self.root, replace=True)
+            stop.assert_called_once()
+        self.assertFalse(tower.keepalive_held("et", self.root))
+
     def test_executor_does_not_respawn_a_session_that_just_started(self):
         import time
         executor = Executor(Store(self.root))

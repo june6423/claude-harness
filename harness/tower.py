@@ -192,6 +192,22 @@ def last_model(session_id: str, repo: Path = REPO_ROOT) -> str | None:
     return model
 
 
+KEEPALIVE_HOLD_SECONDS = 300
+
+
+def keepalive_hold(tower: str, data_root: Path) -> Path:
+    return data_root / "runtime" / "executor" / "keepalive-hold" / f"{tower}"
+
+
+def keepalive_held(tower: str, data_root: Path) -> bool:
+    """True while 'harness tower restart' replaces the session of this tower."""
+    hold = keepalive_hold(tower, data_root)
+    try:
+        return time.time() - float(hold.read_text(encoding="utf-8").strip()) < KEEPALIVE_HOLD_SECONDS
+    except (OSError, ValueError):
+        return False
+
+
 def rotation_prompt(tower: str, data_root: Path) -> str:
     worklog = data_root / "worklog"
     return (f"This is a new {tower.upper()} session after a context rotation. Your earlier session wrote a handover.\n"
@@ -285,7 +301,12 @@ def start(tower: str, data_root: Path, model: str | None = None, prompt: str | N
           wait_seconds: float = 15.0, replace: bool = False, resume: str | None = None) -> dict:
     command = start_command(tower, data_root, model or tower_model(tower, data_root), resume=resume)
     name = session_name(tower, data_root)
+    hold = keepalive_hold(tower, data_root)
     if replace:
+        # Tell the daemon not to revive this tower while it is stopped (seen 2026-11-02: the daemon
+        # respawned the stopped session between 'claude stop' and the new start, so --resume made a copy).
+        hold.parent.mkdir(parents=True, exist_ok=True)
+        hold.write_text(str(time.time()) + "\n", encoding="utf-8")
         stop(name)
     else:
         existing = named(name)
@@ -295,11 +316,14 @@ def start(tower: str, data_root: Path, model: str | None = None, prompt: str | N
                               f"Run 'bin/harness tower restart {tower}' to stop and replace it")
     if prompt:
         command.append(prompt)
-    subprocess.run(command, cwd=REPO_ROOT, check=True, stdout=subprocess.DEVNULL)
-    deadline = time.monotonic() + wait_seconds
-    while time.monotonic() < deadline:
-        session = running(name)
-        if session:
-            return session
-        time.sleep(1)
-    raise RecordError(f"tower {name} did not appear in 'claude agents --json'")
+    try:
+        subprocess.run(command, cwd=REPO_ROOT, check=True, stdout=subprocess.DEVNULL)
+        deadline = time.monotonic() + wait_seconds
+        while time.monotonic() < deadline:
+            session = running(name)
+            if session:
+                return session
+            time.sleep(1)
+        raise RecordError(f"tower {name} did not appear in 'claude agents --json'")
+    finally:
+        hold.unlink(missing_ok=True)

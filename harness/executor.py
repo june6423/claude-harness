@@ -146,6 +146,8 @@ class Executor:
         revived = []
         for name in towers.TOWERS:
             try:
+                if towers.keepalive_held(name, self.store.root):
+                    continue  # 'harness tower restart' is replacing this session
                 session = towers.reaped(towers.session_name(name, self.store.root))
                 if session is None or time.time() - last.get(session["id"], 0) < KEEPALIVE_RETRY_SECONDS:
                     continue

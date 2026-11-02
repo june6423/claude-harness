@@ -11,8 +11,8 @@ description: How the research record is layered (PROJECT_STATE, handover summary
 |---|---|---|---|
 | `state/PROJECT_STATE.md` | What do we believe now, and what must the researcher decide? | `limits.project_state_chars` (default 9000); five fixed sections | DT |
 | `worklog/<tower>-summary.md` | What must the next session of this tower know to continue? | `limits.handover_summary_chars` (default 8000) | each tower, rewritten at each rotation |
-| `worklog/<tower>.md` | What did this session do, and why? | 40000 characters (rule) | each tower |
-| `archive/<EXPERIMENT-ID>.md`, `archive/<tower>-log-<dates>.md` | What happened in a closed experiment, in full? | none | DT (experiment files), each tower (its log files) |
+| `worklog/<tower>.md` | What did this session do, and why? | one session; `harness handover` moves the entries to `archive/<tower>-log-<YYYY-MM>.md` | each tower |
+| `archive/<EXPERIMENT-ID>.md`, `archive/<tower>-log-<YYYY-MM>.md` | What happened in a closed experiment, in full? What did each session do? | none | DT (experiment files), `harness handover` (log files) |
 
 `archive/INDEX.md` has one line for each archive file: `file | experiment or period | dates | result in one sentence | search words`. Records in `records/` stay the evidence. The archive is notes about them.
 

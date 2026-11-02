@@ -116,6 +116,32 @@ class RotationTest(unittest.TestCase):
         self.assertTrue((self.root / "runtime" / "rotate" / "et.json").exists())
         self.assertEqual(self.guard(5000)[0], 0)  # handover written: the stop is allowed
 
+    def test_handover_moves_the_session_entries_to_the_archive(self):
+        worklog = self.root / "worklog" / "dt.md"
+        worklog.write_text("# DT worklog\n\nNotes.\n\n## 2026-11-01 session\n\n- did A\n\n## 2026-11-02 analysis\n\n- did B\n")
+        draft = self.root / "h.md"
+        draft.write_text("Handover one.")
+        with mock.patch.object(sys, "stdout", io.StringIO()):
+            self.assertEqual(main(["--data-root", str(self.root), "handover", "dt", str(draft)]), 0)
+        text = worklog.read_text()
+        self.assertTrue(text.startswith("# DT worklog\n\nNotes.\n"))
+        self.assertNotIn("did A", text)
+        self.assertEqual(text.count("## Handover "), 1)
+        logs = list((self.root / "archive").glob("dt-log-*.md"))
+        self.assertEqual(len(logs), 1)
+        archived = logs[0].read_text()
+        self.assertIn("## 2026-11-01 session", archived)
+        self.assertIn("did B", archived)
+        self.assertIn(logs[0].name, (self.root / "archive" / "INDEX.md").read_text())
+        # the next rotation appends to the same month file and keeps one INDEX line
+        worklog.write_text(text + "\n## 2026-11-03 work\n\n- did C\n")
+        with mock.patch.object(sys, "stdout", io.StringIO()):
+            self.assertEqual(main(["--data-root", str(self.root), "handover", "dt", str(draft)]), 0)
+        self.assertEqual(len(list((self.root / "archive").glob("dt-log-*.md"))), 1)
+        self.assertIn("did C", logs[0].read_text())
+        self.assertIn("Handover one.", logs[0].read_text())  # the earlier handover moved too
+        self.assertEqual((self.root / "archive" / "INDEX.md").read_text().count(logs[0].name), 1)
+
     def test_handover_warns_when_the_summary_is_over_the_limit(self):
         (self.root / "worklog").mkdir(exist_ok=True)
         (self.root / "worklog" / "et-summary.md").write_text("x" * 9000)

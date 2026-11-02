@@ -213,8 +213,11 @@ def cmd_handover(args) -> int:
     stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
     worklog = root / "worklog" / f"{args.tower}.md"
     worklog.parent.mkdir(parents=True, exist_ok=True)
+    moved = archive_worklog(root, args.tower, stamp)
     with worklog.open("a", encoding="utf-8") as handle:
         handle.write(f"\n## Handover {stamp}\n\n{text}\n")
+    if moved:
+        print(f"moved the session entries of {worklog.name} to {moved.relative_to(root)}")
     request = root / "runtime" / "rotate" / f"{args.tower}.json"
     request.parent.mkdir(parents=True, exist_ok=True)
     request.write_text(json.dumps({"tower": args.tower, "requested_at": stamp}) + "\n", encoding="utf-8")
@@ -231,6 +234,35 @@ def cmd_handover(args) -> int:
         print(f"warning: {summary.name} has {size} characters; the limit is {limit} (handover_summary_chars). "
               "The next session must move the entries about closed experiments to archive/ first.")
     return 0
+
+
+def archive_worklog(root: Path, tower: str, stamp: str) -> Path | None:
+    """Move the session entries of worklog/<tower>.md (everything after the header) to
+    archive/<tower>-log-<YYYY-MM>.md, so that the worklog holds one session (researcher review
+    2026-11-02: the worklog grew to 53000 characters). The entries stay searchable in the archive."""
+    worklog = root / "worklog" / f"{tower}.md"
+    if not worklog.exists():
+        return None
+    text = worklog.read_text(encoding="utf-8")
+    cut = text.find("\n## ")
+    if cut < 0 or not text[cut:].strip():
+        return None
+    header, entries = text[:cut].rstrip("\n") + "\n", text[cut:].strip("\n")
+    target = root / "archive" / f"{tower}-log-{stamp[:7]}.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    new_file = not target.exists()
+    with target.open("a", encoding="utf-8") as handle:
+        if new_file:
+            handle.write(f"# {tower.upper()} worklog entries {stamp[:7]}\n\nMoved by `harness handover` at each "
+                         "session rotation. Records are the evidence.\n")
+        handle.write(f"\n<!-- session entries moved at {stamp} -->\n\n{entries}\n")
+    if new_file:
+        index = root / "archive" / "INDEX.md"
+        with index.open("a", encoding="utf-8") as handle:
+            handle.write(f"{target.name} | {tower.upper()} session entries | {stamp[:7]} | worklog entries moved "
+                         f"at each rotation | {tower} worklog log {stamp[:7]}\n")
+    worklog.write_text(header, encoding="utf-8")
+    return target
 
 
 def cmd_archive(args) -> int:

@@ -111,7 +111,7 @@ setsid nohup bin/harness --data-root $T executor watch >> $T/runtime/logs/execut
 |---|---|---|
 | `state/PROJECT_STATE.md` | 지금 무엇을 믿고, 무엇을 결정해야 하나. 연구 질문 → 현재 위치("A를 알아보려고 B를 했고 C가 나왔다") → 가설 → 결정 대기 → 닫힌 실험 한 줄씩 | 9,000자, 5개 절 고정(하니스가 검사) |
 | `worklog/<tower>-summary.md` | 다음 세션이 이어 가는 데 필요한 것만 | 8,000자(넘으면 경고) |
-| `worklog/<tower>.md` | 이번 세션의 작업 기록 | 40,000자(규칙) |
+| `worklog/<tower>.md` | 이번 세션의 작업 기록. 세션 교체 때 `harness handover`가 `archive/<tower>-log-YYYY-MM.md`로 자동으로 옮깁니다 | 한 세션 분량 |
 | `archive/<실험 ID>.md`, `archive/<tower>-log-*.md` | 닫힌 실험의 전체 기록. `archive/INDEX.md`에 한 줄씩 목록 | 없음 |
 
 옛 기록을 찾을 때는 `bin/harness archive search <단어>`를 씁니다. archive 파일과 record 본문을 절 단위로 검색합니다. 연구자가 빠르게 상황을 파악하려면 PROJECT_STATE.md 하나만 읽으면 됩니다.

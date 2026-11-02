@@ -37,7 +37,9 @@ DEFAULT_LIMITS = {"handoff_body_chars": 12000, "report_body_chars": 9000, "verdi
                   # Cross-session messages from one tower to one peer in 10 minutes.
                   "messages_per_peer_per_10_minutes": 10,
                   # A tower writes a handover and gets a new session at this context size.
-                  "context_rotate_tokens": 600000}
+                  # 300000 (researcher decision 2026-11-02): each turn carries the whole context, so a lower
+                  # limit cuts the input tokens of long sessions; the layered record makes a rotation cheap.
+                  "context_rotate_tokens": 300000}
 # The five sections of PROJECT_STATE.md, in this order. dt_guard refuses an edit that drops one.
 PROJECT_STATE_SECTIONS = ("Research question", "Where we stand", "Live hypotheses",
                           "Decisions waiting for the researcher", "Closed experiments")

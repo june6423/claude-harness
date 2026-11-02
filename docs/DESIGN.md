@@ -629,6 +629,7 @@ A long tower session loses quality and costs more for each turn. A tower gets a 
 | D22 | A handoff names a branch, not a commit. After a code fix, VT binds the new commit in a new PRE_RUN verdict under the same handoff. | 2026-11-02 |
 | D23 | A decision request to the researcher gives the context, the options with their effects and costs, and a recommendation, in plain words. | 2026-11-02 |
 | D24 | The record has four layers: PROJECT_STATE.md (research narrative, five fixed sections, 9000 chars), the handover summary (8000 chars, rewritten at each rotation), the session worklog, and `archive/` (full history by experiment, with INDEX.md). | 2026-11-02 |
+| D26 | `context_rotate_tokens` is 300000 again (was 600000 since 2026-10-16): every turn carries the whole context, so a lower limit cuts the input tokens of a long session, and the layered record makes a rotation cheap. | 2026-11-02 |
 | D25 | Retrieval from the archive is `harness archive search`, a stdlib BM25 over Markdown sections. No external search tool or vector store. | 2026-11-02 |
 
 Reason for D18: VT is the gate for FULL runs and for result acceptance, so a missed defect becomes a research conclusion. A DT error in design or paper reading spreads to all later work. ET uses the most tokens, and its failures show in run results and VT verdicts.

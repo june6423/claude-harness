@@ -622,7 +622,7 @@ A long tower session loses quality and costs more for each turn. A tower gets a 
 | ID | Decision |
 |---|---|
 | D17 | Every model call is Opus 5.5 or stronger. Token cost is not a constraint. |
-| D18 | DT and VT use Fable 5.1. ET uses Opus 5.5. |
+| D18 | DT and VT use Fable 5.1. ET uses Opus 5.5. Changed 2026-11-02: DT (and DT2) back to Opus 5.5 for token cost; VT stays on Fable. |
 | D19 | DT decides engineering questions and publishes them as DT directives (`origin: DT`). The researcher decides research questions, costs above plan, and data deletion. | 2026-11-02 |
 | D20 | The Bash sandbox is the only local boundary of a tower: a sandboxed command needs no allow rule. ET reaches servers directly with ssh, scp, and rsync outside the sandbox. | 2026-11-02 |
 | D21 | A FULL task needs a pilot: a PASS VALIDATION run of the same script at the same commit with `PILOT=1` that went through every stage. | 2026-11-02 |

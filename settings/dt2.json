@@ -37,7 +37,9 @@
       "Bash(bin/harness handover dt2 *)",
       "Bash(bin/harness grants)",
       "Bash(bin/harness grants *)",
-      "Bash(bin/harness archive *)"
+      "Bash(bin/harness archive *)",
+      "Edit(/{{DATA_ROOT}}/archive/*-dt2.md)",
+      "Edit(/{{DATA_ROOT}}/archive/INDEX.md)"
     ],
     "deny": [
       "Edit(/{{HARNESS}}/**)",
@@ -59,7 +61,7 @@
       "Bash(git push*)",
       "Bash(git * push)",
       "Bash(git * push *)",
-      "Edit(/{{DATA_ROOT}}/archive/**)"
+      "Edit(/{{DATA_ROOT}}/archive/VLM-*.md)"
     ]
   },
   "sandbox": {
@@ -74,7 +76,8 @@
     ],
     "filesystem": {
       "allowWrite": [
-        "{{DATA_ROOT}}/runtime/drafts/dt2"
+        "{{DATA_ROOT}}/runtime/drafts/dt2",
+        "{{DATA_ROOT}}/archive"
       ],
       "denyWrite": [
         "{{HARNESS}}"

@@ -87,6 +87,12 @@ class GuardTest(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertIn("'instruction' text", message)
 
+    def test_correction_revision_needs_no_researcher_text(self):
+        self.draft.write_text(handoff(approval="CORRECTION"))
+        self.assertEqual(self.run_guard(self.publish_event(self.transcript()))[0], 0)
+        self.draft.write_text(handoff())
+        self.assertEqual(self.run_guard(self.publish_event(self.transcript()))[0], 2)
+
     def test_dt_directive_needs_no_researcher_text(self):
         front = {"kind": "directive", "target": "et", "scope": "LOCAL_CHANGE", "origin": "DT",
                  "instruction": "Fix the port collision in init_single_rank.", "experiment_id": "DEMO-3",

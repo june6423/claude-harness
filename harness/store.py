@@ -289,7 +289,7 @@ class Store:
         if kind == "task":
             self.check_budgets(fields)
         with self.locked():
-            extra = self.check_references(kind, fields)
+            extra = self.check_references(kind, fields, body)
             record_id = self.next_id(kind, fields)
             stored = {"id": record_id, **fields, **extra}
             data = serialize(kind, stored, body)
@@ -332,7 +332,7 @@ class Store:
         path = self.path_of(f"CANCEL-{task_id}")
         return self.load(f"CANCEL-{task_id}") if path.exists() else None
 
-    def check_references(self, kind: str, fields: dict[str, Any]) -> dict[str, Any]:
+    def check_references(self, kind: str, fields: dict[str, Any], body: str = "") -> dict[str, Any]:
         """Check rules that need other records. Return fields that the CLI adds."""
         errors: list[str] = []
 
@@ -351,6 +351,8 @@ class Store:
                 errors.append(f"revision must be {expected}")
             elif latest and fields["predecessor"] != latest.ref:
                 errors.append(f"predecessor must be {latest.ref}")
+            elif fields.get("approval") == "CORRECTION":
+                self._check_correction(fields, body, latest, errors)
         elif kind == "task":
             self._check_task(fields, resolve, errors)
         elif kind == "result":
@@ -383,6 +385,39 @@ class Store:
         if errors:
             raise RecordError(errors)
         return extra
+
+    @staticmethod
+    def _section(body: str, prefix: str) -> str | None:
+        """The text of the first '## ' section whose heading starts with prefix, or None."""
+        lines = body.splitlines()
+        for index, line in enumerate(lines):
+            if line.startswith("## ") and line[3:].strip().startswith(prefix):
+                end = next((j for j in range(index + 1, len(lines)) if lines[j].startswith("## ")), len(lines))
+                return "\n".join(lines[index + 1:end]).strip()
+        return None
+
+    def _check_correction(self, fields: dict[str, Any], body: str, latest: Record, errors: list[str]) -> None:
+        """A correction revision (researcher decision 2026-11-03) fixes DT's own text: a sign error, an
+        inconsistency between a definition and a decision rule, a wrong name or number. It needs no
+        researcher text, so it must keep the authorization, the gate set, and the verbatim researcher
+        decisions of its predecessor, and say what it corrects."""
+        if latest is None or latest.fields.get("status") != "APPROVED":
+            errors.append("a CORRECTION needs an APPROVED predecessor")
+            return
+        p = latest.fields
+        if fields.get("authorization") != p.get("authorization"):
+            errors.append("a CORRECTION must keep the authorization of its predecessor")
+        if fields.get("full_run_condition") != p.get("full_run_condition"):
+            errors.append("a CORRECTION must keep full_run_condition")
+        gates = {(g.get("id"), g.get("phase")) for g in fields.get("gates", [])}
+        if gates != {(g["id"], g["phase"]) for g in p["gates"]}:
+            errors.append("a CORRECTION must keep the gate IDs and phases of its predecessor. "
+                          "A new gate or a dropped gate needs the researcher")
+        decisions = self._section(latest.body, "Researcher decisions")
+        if decisions is not None and self._section(body, "Researcher decisions") != decisions:
+            errors.append("a CORRECTION must keep the '## Researcher decisions' section verbatim")
+        if self._section(body, "Correction") is None:
+            errors.append("a CORRECTION needs a '## Correction' section that says what it corrects and why")
 
     def _check_dt_directive(self, fields: dict[str, Any], resolve, errors: list[str]) -> None:
         """A DT directive (researcher decision 2026-11-02) carries an engineering decision of DT under

@@ -94,8 +94,8 @@ def check_publish(event: dict) -> int:
     except (OSError, RecordError):
         return 0  # the CLI reports the bad draft itself
     if kind == "handoff":
-        if fields.get("status") != "APPROVED":
-            return 0
+        if fields.get("status") != "APPROVED" or fields.get("approval") == "CORRECTION":
+            return 0  # a correction revision: the CLI checks that it keeps the researcher decisions
         field = "approval"
     elif kind == "directive" and fields.get("origin") == "DT":
         return 0  # an engineering decision of DT; the CLI limits its scope and count

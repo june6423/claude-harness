@@ -300,6 +300,30 @@ class StoreTest(unittest.TestCase):
         self.assertEqual(self.store.budget_usage(handoff.ref),
                          {"run_tasks": 3, "full_tasks": 1, "max_recovery_attempt": 1})
 
+    def test_correction_revision_keeps_the_researcher_decisions(self):
+        text = fixture("handoff_transplant.md")
+        front, body = parse("handoff", text)
+        body1 = body + "\n## Researcher decisions (verbatim)\n\n1. \"run it\".\n\n## Rules\n\nalignment a = <mu, g>.\n"
+        first = self.store.publish("handoff", markdown(front, body1), "DT")
+        fixed = body1.replace("a = <mu, g>", "a = <-mu, g>") + "\n## Correction\n\nThe sign of a disagreed with rule 4.\n"
+        correction = dict(front, revision=2, predecessor=first.ref, approval="CORRECTION")
+        self.assertRefused("handoff", markdown(correction, body1.replace("a = <mu, g>", "a = <-mu, g>")),
+                           "needs a '## Correction' section", "DT")
+        self.assertRefused("handoff", markdown(dict(correction, authorization="VALIDATION_RUN"), fixed),
+                           "keep the authorization", "DT")
+        renamed = dict(correction, gates=[dict(front["gates"][0], id="G9")] + front["gates"][1:])
+        self.assertRefused("handoff", markdown(renamed, fixed), "keep the gate IDs and phases", "DT")
+        changed = fixed.replace('1. "run it".', '1. "run it twice".')
+        self.assertRefused("handoff", markdown(correction, changed), "Researcher decisions", "DT")
+        second = self.store.publish("handoff", markdown(correction, fixed), "DT")
+        self.assertEqual(second.fields["revision"], 2)
+        self.assertEqual(second.fields["approval"], "CORRECTION")
+        # a correction of a DRAFT predecessor is refused
+        draft = self.store.publish("handoff", edit_markdown(markdown(dict(front, revision=3, predecessor=second.ref,
+                                                                          status="DRAFT", approval="NONE"), fixed)), "DT")
+        self.assertRefused("handoff", markdown(dict(correction, revision=4, predecessor=draft.ref), fixed),
+                           "APPROVED predecessor", "DT")
+
     def test_full_task_needs_a_pilot_of_the_same_script_and_commit(self):
         handoff = self.publish_handoff()
         verdict = self.publish_verdict(handoff)

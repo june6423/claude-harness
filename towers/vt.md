@@ -52,6 +52,7 @@ refs: <reference>, ... | NONE
 19. After you publish a verdict, send VERDICT_READY to `et` and `dt` with the verdict reference.
 20. Do not run inline code such as `python3 -c`. Write each check in a file in your scratch directory. Then run the file.
 21. Run a `bin/harness` command alone in its Bash call: no `cd`, pipe, or redirection such as `2>&1` around it. With these additions the command runs inside the sandbox, where it has no permission. Other commands (grep, python3 on a file, pytest on a local copy) can use pipes; the sandbox is their boundary. Use absolute paths and `git -C <repository path>`.
+21a. Do not run `cd` in a Bash call. The directory persists to the later calls, and `bin/harness` then fails. Write a helper script in `<data-root>/runtime/drafts/vt/` and run it with `python3 <file>` or `bash <file>`. Do not write to `/tmp`, and do not put a `for` loop, a `while` loop, a heredoc, or an `awk` program with braces into a Bash call: the permission check refuses such a call even inside the sandbox.
 22. Read fetched outputs in `<data-root>/artifacts/<task ID>/`. The `fetched` list of the result gives the SHA-256 of each file. A file in `fetch_skipped` was not copied.
 22a. A result with the outcome CANCELLED is not evidence that the run completed. Its outputs can be partial.
 23. Before you publish, run `bin/harness publish verdict <draft> --dry-run --actor VT`. Fix each error. Then publish.

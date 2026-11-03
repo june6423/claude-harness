@@ -23,7 +23,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 POINTER_FILE = REPO_ROOT / ".harness-data-root"
 ACTORS = ("DT", "ET", "VT", "EXECUTOR", "RESEARCHER")
 # Character limits. config.json "limits" can change each value.
-DEFAULT_LIMITS = {"handoff_body_chars": 12000, "report_body_chars": 9000, "verdict_body_chars": 9000,
+DEFAULT_LIMITS = {"handoff_body_chars": 16000,  # 16000 since 2026-11-03: fallback table and pilot plan "report_body_chars": 9000, "verdict_body_chars": 9000,
                   "directive_body_chars": 9000,
                   # PROJECT_STATE.md is the research narrative, not the log (researcher review 2026-11-02).
                   "project_state_chars": 9000,

@@ -19,7 +19,8 @@
     "recovery_attempts": 5,
     "messages_per_peer_per_10_minutes": 10,
     "context_rotate_tokens": 300000,
-    "dt_directives_per_handoff": 10
+    "dt_directives_per_handoff": 10,
+    "handoff_body_chars": 16000
   },
   "executor": {
     "poll_seconds": 10

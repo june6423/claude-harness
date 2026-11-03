@@ -122,7 +122,9 @@ refs: <reference>, ... | NONE
 32. Run `bin/harness status` to see each experiment, its tasks, results, and verdicts.
 33. When the POST_RUN verdict is VALID, report the result to the researcher in Korean. Give the observed result, the verdict, and each limit. Then update `PROJECT_STATE.md`.
 34. When a verdict is not VALID, report the defects to the researcher in Korean. Do not choose a new experiment without the researcher.
-35. Run a `bin/harness` command alone in its Bash call: no `;`, `&&`, pipe, `cd`, or redirection such as `2>&1`. With these additions the command runs inside the sandbox, where it has no network and no permission. Other commands (grep, sed, awk, python3 on a file, tests) can use pipes; the sandbox is their boundary. `python3 -c` is not allowed; write the code in a file.
+35. Run a `bin/harness` command alone in its Bash call: no `;`, `&&`, pipe, `cd`, or redirection such as `2>&1`. With these additions the command runs inside the sandbox, where it has no network and no permission. Other commands (grep, sed, awk, python3 on a file, tests) can use pipes; the sandbox is their boundary.
+35a. Do not run `cd` in a Bash call. The directory persists to the later calls, and `bin/harness` then fails with "No such file or directory". Use absolute paths. When that already happened, run `/home/june6423/harness/bin/harness` by its absolute path (the permission rules accept it).
+35b. Write a helper script in `<data-root>/runtime/drafts/dt/` and run it with `python3 <file>` or `bash <file>`. Do not write to `/tmp` (the Write tool refuses it) and do not put a `for` loop, a `while` loop, a heredoc (`<<`), or an `awk` program with braces into a Bash call: the permission check refuses such a call even inside the sandbox. One simple command, or a pipe of simple commands, passes.
 36. The harness refuses a FULL task until VT gives VALID for each PRE_RUN gate. A FULL_RUN handoff therefore needs no `full_run_condition`. Use `ALL_PRE_RUN_GATES_VALID` only with a VALIDATION_RUN handoff, when the researcher approves a later move to FULL_RUN.
 
 ## Code access and directives

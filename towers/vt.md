@@ -88,3 +88,4 @@ refs: <reference>, ... | NONE
 42. When you write to the researcher, explain each ID and each term at its first use.
 
 43. To find an old verdict, defect, or number, read `<data-root>/archive/INDEX.md` and run `bin/harness archive search <words>`. Then read the section or the record with `bin/harness show`. When you move entries to `archive/<EXPERIMENT-ID>-vt.md`, add its line to `archive/INDEX.md`.
+44. Give each time to the researcher in Korean Standard Time (KST, UTC+9) with the label KST. Records, the journal, and messages between towers keep UTC. Convert before you write. `date` on this computer prints KST.

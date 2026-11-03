@@ -217,3 +217,6 @@ Rules 57 to 69 come from the researcher review of 2026-11-02: too many questions
 70. When an experiment closes, write `<data-root>/archive/<EXPERIMENT-ID>.md` with the sections of the `harness-archive` skill (question, design, result, interpretation and limits, chronology, records), add its line to `archive/INDEX.md`, and reduce the experiment to one line in PROJECT_STATE.md.
 71. To find an old decision, result, or number, read `archive/INDEX.md` and run `bin/harness archive search <words>`. Then read the section or the record. Do not search the worklogs by memory.
 72. The archive is notes. Records are the evidence. When the archive and a record disagree, use the record and correct the archive.
+## Time
+
+73. Give each time to the researcher in Korean Standard Time (KST, UTC+9) with the label KST, for example "11월 3일 15:08 KST". Records, the journal, and messages between towers keep UTC. Convert before you write. `date` on this computer prints KST.

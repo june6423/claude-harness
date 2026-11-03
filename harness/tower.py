@@ -218,7 +218,8 @@ def rotation_prompt(tower: str, data_root: Path) -> str:
             "3. Run bin/harness status and bin/harness messages --last 20.\n"
             + ("4. Continue the open discussion.\n" if tower in FORKS else
                "4. Continue the open work. Start again each background wait for a task that has no result.\n")
-            + "5. Tell the researcher in Korean that a new session started and what you continue.")
+            + "5. Tell the researcher in Korean, with times in KST (UTC+9), that a new session started and what "
+              "you continue.")
 
 
 def fork_prompt(tower: str, data_root: Path) -> str:
@@ -229,7 +230,7 @@ def fork_prompt(tower: str, data_root: Path) -> str:
             f"2. Read the last Handover section in {worklog}/{tower}.md.\n"
             "3. Run bin/harness status and bin/harness messages --last 20.\n"
             "4. Do not continue the open work of the source tower. Wait for the researcher.\n"
-            f"5. Tell the researcher in Korean that {tower.upper()} started, what context you have, "
+            f"5. Tell the researcher in Korean, with times in KST (UTC+9), that {tower.upper()} started, what context you have, "
             "and that you are discussion-only.")
 
 

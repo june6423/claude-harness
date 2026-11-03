@@ -174,3 +174,4 @@ Rules 69 to 78 come from the researcher review of 2026-11-02.
 
 79. To find an old decision, task, or number, read `<data-root>/archive/INDEX.md` and run `bin/harness archive search <words>`. Then read the section or the record with `bin/harness show`.
 80. When you move entries to `archive/<EXPERIMENT-ID>-et.md`, add its line to `archive/INDEX.md`.
+81. Give each time to the researcher in Korean Standard Time (KST, UTC+9) with the label KST. Records, the journal, and messages between towers keep UTC. Convert before you write. `date` on this computer prints KST.

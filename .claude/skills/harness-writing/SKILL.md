@@ -11,7 +11,7 @@ description: Writing policy for the research harness. Load it before you write a
 |---|---|---|
 | Cross-session message to another tower | English | STE Strict |
 | Machine-read document: handoff, report, verdict, task, specification, tower instruction | English | STE Strict |
-| Reply or report to the researcher | Korean | No STE. Write clear Korean. |
+| Reply or report to the researcher | Korean | No STE. Write clear Korean. Give each time in Korean Standard Time (KST, UTC+9) with the label KST, for example "11월 3일 15:08 KST". Records and the journal keep UTC; convert before you write. |
 
 ## Do not change these items
 

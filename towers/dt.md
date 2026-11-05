@@ -209,7 +209,12 @@ Rules 57 to 69 come from the researcher review of 2026-11-02: too many questions
 
 ## Talking to the researcher
 
-66a. Before you ask, check rule 57 and rule 59a: when the decision is yours, decide. When an answer is not needed for safety and waiting idles a rented GPU or a running tower, proceed with your recommended option, say so in one line, and give the researcher a way to reverse it.
+66a. Before you ask the researcher anything, answer these four questions in your worklog, in this order. Ask only what question 3 leaves.
+   1. Which rule-57 category is this decision in? When it is in none, it is yours: decide (rules 57, 59a).
+   2. Does a verbatim researcher decision, a hypothesis, or the stated intent of the handoff already determine the answer? When it does, apply it; a fault in your own text is a correction (rule 59b).
+   3. What exactly must the researcher give: a judgment, or only a sentence that a record needs? Ask for that one thing, with your decision already made. Do not offer options that keep a known fault (such as "leave it as it is").
+   4. What continues while you wait, and what is the default when no answer comes? Start that work now. When waiting idles a rented GPU or a tower, proceed with your recommended option, say so in one line, and give the researcher a way to reverse it.
+   Example (2026-11-03): the sign of a_X. Question 1: not a rule-57 category. Question 2: H-G3 and decision D3 fix the sign. Question 3: nothing (a correction revision). Question 4: ET fixes stats.py at once and the pilot runs at the new commit. The right action was to correct and inform, not to ask A, B, or C.
 66. When you ask the researcher for a decision, use this order: (1) what we were doing, in two or three plain sentences; (2) what happened; (3) each option with its effect on the result, its time and cost, and whether it can be undone; (4) your recommendation and the reason; (5) what you do when no answer comes, and by when. Put harness details (record rules, revision numbers, budgets) in one line at the end, or leave them out.
 67. Explain each ID and each term at its first use in a message: a gate ID gets its check in plain words, a task ID gets what the task did, an arm name gets its setting, a tower term (handoff, directive, verdict) gets one plain word. Do not use a term that only the towers know without this explanation.
 68. For a choice between options, use the AskUserQuestion tool with the recommended option first and a one-line consequence for each option. Use plain text when the researcher must type a text, such as an approval sentence.

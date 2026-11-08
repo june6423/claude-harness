@@ -236,6 +236,32 @@ class StoreTest(unittest.TestCase):
         self.store.publish("result", json.dumps({**result, "cancel": cancel.ref}), "EXECUTOR")
         self.assertEqual(self.store.verify(), [])
 
+    def test_list_is_short_and_show_reads_parts(self):
+        import io, sys
+        from unittest import mock
+        from harness.cli import main
+        handoff = self.publish_handoff()
+        def run(*argv):
+            out = io.StringIO()
+            with mock.patch.object(sys, "stdout", out):
+                code = main(["--data-root", str(self.root), *argv])
+            return code, out.getvalue()
+        code, out = run("list")
+        self.assertEqual(code, 0)
+        self.assertIn("HANDOFF-VLM-OPSD-TRANSPLANT-001-R1 APPROVED FULL_RUN", out)
+        self.assertNotIn("sha256", out)
+        self.assertIn("@sha256:", run("list", "--refs")[1])
+        code, out = run("show", handoff.record_id, "--front")
+        self.assertIn('"authorization": "FULL_RUN"', out)
+        self.assertIn("sections:", out)
+        first = [l[3:].strip() for l in handoff.body.splitlines() if l.startswith("## ")][0]
+        code, out = run("show", handoff.record_id, "--section", first[:5])
+        self.assertEqual(code, 0)
+        self.assertNotIn('"gates"', out)
+        err = io.StringIO()
+        with mock.patch.object(sys, "stderr", err):
+            self.assertEqual(run("show", handoff.record_id, "--section", "Nope")[0], 2)
+
     def test_archive_search_ranks_sections(self):
         from harness.store import archive_search
         self.assertTrue((self.root / "archive" / "INDEX.md").exists())  # init made the archive

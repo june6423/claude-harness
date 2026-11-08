@@ -116,6 +116,28 @@ class RotationTest(unittest.TestCase):
         self.assertTrue((self.root / "runtime" / "rotate" / "et.json").exists())
         self.assertEqual(self.guard(5000)[0], 0)  # handover written: the stop is allowed
 
+    def test_mid_turn_warning_once_per_session(self):
+        transcript = self.root / "t.jsonl"
+        usage = {"input_tokens": 10, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0}
+        def write(tokens):
+            transcript.write_text(json.dumps({"type": "assistant", "message": {"usage": dict(usage, input_tokens=tokens)}}) + "\n")
+        def post(session="s1"):
+            event = {"hook_event_name": "PostToolUse", "session_id": session, "transcript_path": str(transcript)}
+            err = io.StringIO()
+            with mock.patch.object(sys, "stdin", io.StringIO(json.dumps(event))), mock.patch.object(sys, "stderr", err), \
+                    mock.patch.object(sys, "argv", ["context_guard.py", "--tower", "vt"]):
+                return context_guard.main(), err.getvalue()
+        write(500)  # setUp sets context_rotate_tokens to 1000
+        self.assertEqual(post()[0], 0)
+        write(400000)
+        code, message = post()
+        self.assertEqual(code, 2)
+        self.assertIn("end your turn", message)
+        self.assertEqual(post()[0], 0)            # once per session
+        self.assertEqual(post("s2")[0], 2)        # a new session is warned again
+        self.assertEqual(context_guard.context_tokens(str(transcript), tail_bytes=10), 0)  # a cut line is skipped
+        self.assertEqual(context_guard.context_tokens(str(transcript), tail_bytes=10**6), 400000)
+
     def test_handover_moves_the_session_entries_to_the_archive(self):
         worklog = self.root / "worklog" / "dt.md"
         worklog.write_text("# DT worklog\n\nNotes.\n\n## 2026-11-01 session\n\n- did A\n\n## 2026-11-02 analysis\n\n- did B\n")

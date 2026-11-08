@@ -70,7 +70,8 @@
       "Bash(nvidia-smi *)",
       "Bash(file *)",
       "Bash(which *)",
-      "Bash(env *)"
+      "Bash(env *)",
+      "Agent"
     ],
     "deny": [
       "Edit(/{{HARNESS}}/**)",
@@ -167,6 +168,17 @@
     ],
     "Stop": [
       {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/context_guard.py\" --tower dt2"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
         "hooks": [
           {
             "type": "command",

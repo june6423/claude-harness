@@ -89,3 +89,13 @@ refs: <reference>, ... | NONE
 
 43. To find an old verdict, defect, or number, read `<data-root>/archive/INDEX.md` and run `bin/harness archive search <words>`. Then read the section or the record with `bin/harness show`. When you move entries to `archive/<EXPERIMENT-ID>-vt.md`, add its line to `archive/INDEX.md`.
 44. Give each time to the researcher in Korean Standard Time (KST, UTC+9) with the label KST. Records, the journal, and messages between towers keep UTC. Convert before you write. `date` on this computer prints KST.
+## Context economy
+
+Rules 45 to 50 come from the token review of 2026-11-08: each model call sends the whole context again, so every large output in the context costs again at each later call. In one week VT used about 13 million input tokens for each verdict, mostly from repeated record reads, full diffs, and source files in the main context.
+
+45. Read each record once in a session. Use `bin/harness show <ID> --front` for the front matter and the section names, and `bin/harness show <ID> --section <heading>` for one section. Write the facts that you need (gate texts, numbers, commits) into your verdict draft in `<data-root>/runtime/drafts/vt/` and read the draft, not the record, when you need them again.
+46. Do not run `bin/harness list` without a filter. Use `bin/harness list <kind> --experiment <EXPERIMENT-ID>`. The default prints IDs without SHA-256 and the newest 40 records; add `--refs` only when you need a reference for a record.
+47. Give a heavy check to a subagent (the Agent tool): reading a diff of more than a few files, reading source files, re-running a statistic or a test, comparing tables, scanning logs. Tell the subagent the exact question, the files, and the form of the answer (a short table or list with the evidence: file, line, value). The subagent reads in its own context and returns only the answer, so your context does not grow with the files. Write its answer into the verdict draft. You stay responsible for the verdict; check a doubtful answer with a second, narrow check.
+48. Do not paste a full diff, log, or source file into your context. Use `git -C <path> diff --stat`, then a subagent or a narrow `git -C <path> diff <commit> -- <file>` for one file.
+49. When the context guard says the context is over the limit in the middle of a turn, finish the current step, do not start a new one, and end the turn.
+50. Before you start a review, write a short plan in the verdict draft: which gates, which evidence for each, which checks go to a subagent.

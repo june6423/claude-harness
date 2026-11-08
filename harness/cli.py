@@ -95,19 +95,39 @@ def cmd_show(args) -> int:
     record = store.resolve(args.record, kind_of_id(record_id)) if "@" in args.record else store.load(record_id)
     if args.ref_only:
         print(record.ref)
+    elif args.front:
+        print(record.ref)
+        print(json.dumps(record.fields, ensure_ascii=False, indent=2))
+        headings = [line[3:].strip() for line in record.body.splitlines() if line.startswith("## ")]
+        if headings:
+            print("sections: " + " | ".join(headings))
+    elif args.section:
+        text = Store._section(record.body, args.section)
+        if text is None:
+            headings = [line[3:].strip() for line in record.body.splitlines() if line.startswith("## ")]
+            raise RecordError(f"{record_id} has no section that starts with {args.section!r}. "
+                              f"Sections: {' | '.join(headings) or 'none'}")
+        print(f"{record.ref}\n## {args.section}...\n{text}")
     else:
         sys.stdout.write(record.data.decode("utf-8"))
     return 0
 
 
 def cmd_list(args) -> int:
+    """One short line for each record. IDs only unless --refs (each ref costs 72 characters of context)."""
     store = Store(find_data_root(args.data_root))
+    rows = []
     for record in store.records(args.kind):
-        if args.experiment and record.fields.get("experiment_id") not in (args.experiment, None):
+        if args.experiment and args.experiment not in record.record_id \
+                and record.fields.get("experiment_id") != args.experiment:
             continue
-        summary = {k: record.fields[k] for k in ("status", "authorization", "mode", "execution_class",
-                                                 "phase", "overall", "outcome") if k in record.fields}
-        print(record.ref, json.dumps(summary, ensure_ascii=False) if summary else "")
+        summary = " ".join(str(record.fields[k]) for k in ("status", "authorization", "mode", "execution_class",
+                                                           "phase", "overall", "outcome") if k in record.fields)
+        rows.append(f"{record.ref if args.refs else record.record_id} {summary}".rstrip())
+    shown = rows if args.all else rows[-args.last:]
+    if len(shown) < len(rows):
+        print(f"({len(rows) - len(shown)} older records not shown; use --all, --kind, or --experiment)")
+    print("\n".join(shown))
     return 0
 
 
@@ -354,11 +374,16 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("show", help="print a record by ID or reference")
     p.add_argument("record")
     p.add_argument("--ref-only", action="store_true")
+    p.add_argument("--front", action="store_true", help="only the reference, the front matter, and the section names")
+    p.add_argument("--section", help="only the '## ' section whose heading starts with this text")
     p.set_defaults(func=cmd_show)
 
     p = sub.add_parser("list", help="list records")
     p.add_argument("kind", nargs="?", choices=KINDS)
     p.add_argument("--experiment")
+    p.add_argument("--refs", action="store_true", help="print full references with SHA-256")
+    p.add_argument("--last", type=int, default=40, help="show the newest N records (default 40)")
+    p.add_argument("--all", action="store_true", help="show every matching record")
     p.set_defaults(func=cmd_list)
 
     p = sub.add_parser("verify", help="check hashes, journal entries, schemas, and references")

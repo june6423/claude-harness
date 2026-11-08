@@ -703,6 +703,12 @@ The new settings and rules apply when a tower session starts. The daemon applies
 6. `harness handover` moves the session entries of `worklog/<tower>.md` (everything after the header) to `archive/<tower>-log-<YYYY-MM>.md` and adds the INDEX line once, so the worklog holds one session. Reason: on 2026-11-02 worklog/dt.md was still 52941 chars after the migration, because no rule said when to move entries and nothing did it. The move is mechanical, so the harness does it (D8 stays: no hook enforces a size).
 7. Migration on 2026-11-02: the old dt-summary.md went to `archive/dt-log-2026-10-08_to_2026-11-01.md` unchanged; the old PROJECT_STATE.md to `archive/PROJECT_STATE-2026-11-02.md`; one skeleton file for each of the six experiments with its chronology pointers and record list; the new PROJECT_STATE.md carries the Live hypotheses over and marks the other sections for DT; the new dt-summary.md is the latest handover. DT writes the narratives.
 
+## 27. Token review (2026-11-08)
+
+1. Fable use from 2026-11-01 to 11-08 (transcript tokens, input with cache): VT about 140 M (63 %), the maintenance session about 56 M (25 %, it ran on Fable from 11-02 to 11-05 with a context of about 500 k tokens), DT and DT2 about 26 M (12 %, on 11-02 before the switch to Opus). From 11-03 only VT used Fable.
+2. VT rotated 10 times from 11-03 to 11-07 for 11 verdicts. Each session started at 46 k tokens and ended near 300 k (one reached 480 k); the mean context was about 200 k. The context grew from full record reads (`show` 15 to 26 times a session), `harness list` (76 k chars, every record with its SHA-256), full diffs, and source files.
+3. Changes: `harness list` prints IDs and status, the newest 40 by default (`--refs`, `--all`); `harness show --front` and `--section <heading>` print a part of a record; the context guard also runs after each tool call and tells the tower once a session to end the turn when the context is over the limit; every tower may use subagents (`Agent`), and the rules tell VT (45 to 50), DT (74), and ET (82) to read records once and to give heavy reading to a subagent.
+
 ## 9. Open decisions
 
 None. The researcher accepted O1 to O3 as D9 to D11.

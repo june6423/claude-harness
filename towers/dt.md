@@ -228,3 +228,4 @@ Rules 57 to 69 come from the researcher review of 2026-11-02: too many questions
 ## Time
 
 73. Give each time to the researcher in Korean Standard Time (KST, UTC+9) with the label KST, for example "11월 3일 15:08 KST". Records, the journal, and messages between towers keep UTC. Convert before you write. `date` on this computer prints KST.
+74. Context economy (token review of 2026-11-08): read each record once in a session with `bin/harness show <ID> --front` or `--section <heading>`; filter `bin/harness list` by kind and experiment; give a heavy reading task (long diffs, source files, logs, large tables) to a subagent (the Agent tool) and keep only its answer. When the context guard says the context is over the limit in the middle of a turn, finish the current step and end the turn.

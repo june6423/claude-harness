@@ -262,8 +262,10 @@ def cmd_handover(args) -> int:
 
 def _prune_drafts(root: Path, tower_name: str, keep_days: float, keep: tuple[Path, ...] = (),
                   actor: str = "HARNESS", dry_run: bool = False) -> dict[str, list[Path]]:
-    result = drafts.prune(root, tower_name, keep_days, dry_run=dry_run, keep=keep)
+    live_only = tower_name in drafts.settings(Store(root).config())["live_reference_towers"]
+    result = drafts.prune(root, tower_name, keep_days, dry_run=dry_run, keep=keep, live_only=live_only)
     base = root / "runtime" / "drafts" / tower_name
+    layers = "worklog/ or state/" if live_only else "archive/, worklog/, or state/"
     deleted = [str(p.relative_to(base)) for p in result["deleted"]]
     archived = [str(p.relative_to(base)) for p in result["archived"]]
     if (deleted or archived) and not dry_run:
@@ -272,7 +274,7 @@ def _prune_drafts(root: Path, tower_name: str, keep_days: float, keep: tuple[Pat
                                                    "archived": archived})
     verbs = ("would delete", "would move") if dry_run else ("deleted", "moved")
     print(f"{verbs[0]} {len(deleted)} old drafts in runtime/drafts/{tower_name}/ (older than {keep_days:g} days, "
-          f"not named in archive/, worklog/, or state/); {verbs[1]} {len(archived)} unpublished record drafts "
+          f"not named in {layers}; virtual environments stay); {verbs[1]} {len(archived)} unpublished record drafts "
           f"to archive/unpublished/{tower_name}/")
     return result
 
@@ -457,7 +459,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("file")
     p.set_defaults(func=cmd_handover)
 
-    p = sub.add_parser("drafts", help="delete the old drafts of a tower (handover does this for drafts.prune_towers)")
+    p = sub.add_parser("drafts", help="delete the old drafts of a tower (handover does this for drafts.prune_towers: dt, et, vt)")
     p.add_argument("action", choices=("prune",))
     p.add_argument("tower", choices=tower.TOWERS)
     p.add_argument("--keep-days", type=float, help="default: drafts.keep_days in config.json (7)")

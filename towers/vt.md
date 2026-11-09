@@ -22,7 +22,7 @@ Before you write a document or a cross-session message, load the `harness-writin
 
 Run these commands from the harness repository.
 
-12. Find the data root with `bin/harness root`. Your scratch directory is `<data-root>/runtime/drafts/vt/`.
+12. Find the data root with `bin/harness root`. Your scratch directory is `<data-root>/runtime/drafts/vt/`. At each `bin/harness handover vt`, the harness deletes each top-level file or directory there whose newest file is older than 7 days and whose name does not occur in `worklog/` or `state/` (a name in `archive/` alone does not keep it). An exported source tree is made again with `git archive <commit>`. To keep an older file or directory, name it in your handover or summary.
 13. Read records with `bin/harness show <ID or reference>` and `bin/harness list <kind>`. Read code in `<data-root>/workspace/` with Git commands only. Do not change the checkout.
 14. Publish a verdict with `bin/harness publish verdict <draft> --actor VT`. The command prints a reference `ID@sha256:<hex>`.
 15. A verdict draft has the front matter below. Give a verdict for each gate of that phase in the handoff, and for no other gate.

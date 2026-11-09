@@ -117,7 +117,9 @@ setsid nohup bin/harness --data-root $T executor watch >> $T/runtime/logs/execut
 
 DT의 내부 초안은 `runtime/drafts/dt/` 아래 종류별 폴더에 있습니다: `records/`(handoff·directive 초안), `msg/`(tower 사이 메시지 본문), `scripts/`(일회용 스크립트). 연구자가 읽을 문서는 이 폴더에 두지 않습니다. `runtime/`은 Git에 들어가지 않으므로 보관할 문서는 모두 `archive/reports/`에 있습니다(2026-11-09부터).
 
-DT 세션이 교체될 때(`harness handover dt`) 하니스가 오래된 초안을 정리합니다. 7일이 지났고 archive·worklog·state 어디에도 파일 이름이 나오지 않는 초안은 지웁니다. 게시된 handoff·directive는 `records/`에, 메시지는 `messages.jsonl`에 원문이 남아 있으므로 잃는 것은 일회용 스크립트뿐입니다. 게시되지 않은 handoff·directive 초안은 지우지 않고 `archive/unpublished/dt/`로 옮깁니다. 지운 파일 목록은 journal의 `DRAFTS_PRUNED`에 남습니다. 직접 확인하려면 `bin/harness drafts prune dt --dry-run`을 씁니다. 기간은 `config.json`의 `drafts.keep_days`, 대상 tower는 `drafts.prune_towers`(기본 `["dt"]`)로 바꿉니다.
+DT 세션이 교체될 때(`harness handover dt`) 하니스가 오래된 초안을 정리합니다. 7일이 지났고 archive·worklog·state 어디에도 파일 이름이 나오지 않는 초안은 지웁니다. 게시된 handoff·directive는 `records/`에, 메시지는 `messages.jsonl`에 원문이 남아 있으므로 잃는 것은 일회용 스크립트뿐입니다. 게시되지 않은 handoff·directive 초안은 지우지 않고 `archive/unpublished/dt/`로 옮깁니다. 지운 파일 목록은 journal의 `DRAFTS_PRUNED`에 남습니다. 직접 확인하려면 `bin/harness drafts prune dt --dry-run`을 씁니다. 기간은 `config.json`의 `drafts.keep_days`, 대상 tower는 `drafts.prune_towers`(기본 `["dt", "et", "vt"]`)로 바꿉니다.
+
+ET·VT도 세션이 교체될 때 같은 방식으로 정리합니다(2026-11-09부터). ET·VT는 작업 폴더 단위로 판정하며, 폴더 안 가장 최근 파일이 7일을 넘었고 이름이 기록에 나오지 않으면 폴더째 지웁니다. `rollout-venv/` 같은 Python 가상환경(`pyvenv.cfg`가 있는 폴더)은 지우지 않습니다. VT가 내보낸 소스 트리는 커밋으로 다시 만들 수 있으므로, VT는 archive가 아니라 worklog·state에 이름이 있을 때만 남깁니다(`drafts.live_reference_towers`). ET는 빌린 서버에서 복사한 로그가 유일한 사본일 수 있어 archive에 이름이 있어도 남깁니다.
 
 옛 기록을 찾을 때는 `bin/harness archive search <단어>`를 씁니다. archive 파일(`archive/reports/` 포함)과 record 본문을 절 단위로 검색합니다. 한글 단어도 찾지만 조사가 붙은 형태(예: "계획안을")는 다른 단어로 봅니다. 연구자가 빠르게 상황을 파악하려면 PROJECT_STATE.md 하나만 읽으면 됩니다.
 

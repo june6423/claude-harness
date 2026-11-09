@@ -165,10 +165,17 @@ class RotationTest(unittest.TestCase):
         self.assertEqual((self.root / "archive" / "INDEX.md").read_text().count(logs[0].name), 1)
 
     def _old(self, path: Path, text: str = "x", days: float = 10) -> Path:
+        """Write an old file. Its new directories under the drafts directory get the old time too."""
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text)
         stamp = path.stat().st_mtime - days * 86400
         os.utime(path, (stamp, stamp))
+        drafts_root = self.root / "runtime" / "drafts"
+        for parent in path.parents:
+            if parent.parent == drafts_root or drafts_root not in parent.parents:
+                break  # do not age runtime/drafts/<tower> itself
+            if not any(item.stat().st_mtime > stamp for item in parent.iterdir()):
+                os.utime(parent, (stamp, stamp))
         return path
 
     def test_handover_prunes_old_dt_drafts(self):
@@ -208,13 +215,64 @@ class RotationTest(unittest.TestCase):
         self.assertIn("msg/msg_et_001.txt", pruned[-1]["files"])
         self.assertEqual(pruned[-1]["archived"], ["records/DIRECTIVE-plan.md"])
 
-    def test_handover_does_not_prune_other_towers_and_dry_run_deletes_nothing(self):
-        et_old = self._old(self.root / "runtime" / "drafts" / "et" / "old.py")
-        draft = self.root / "h.md"
+    def test_handover_prunes_et_directories_and_keeps_venvs(self):
+        base = self.root / "runtime" / "drafts" / "et"
+        old_dir = base / "scratch_rescore"
+        self._old(old_dir / "out" / "a.json")
+        self._old(old_dir / "README.md")  # a common file name in the archive does not keep the directory
+        self._old(old_dir / "TASK-plan.md", '---\n{"kind": "task"}\n---\n## Plan\n\nNever published.\n')
+        mixed = base / "packfix"
+        self._old(mixed / "old.log")
+        (mixed / "new.log").write_text("x")  # one new file keeps the directory
+        named = base / "r2"
+        self._old(named / "x.py")
+        short = base / "pr2"
+        self._old(short / "x.py")  # "r2" in the archive does not name "pr2"
+        venv = base / "rollout-venv"
+        self._old(venv / "pyvenv.cfg")
+        self._old(venv / "lib" / "torch.py")
+        loose = self._old(base / "old.py")
+        (self.root / "archive" / "VLM-X-001-et.md").write_text("# X\n\n## Log\n\nSee runtime/drafts/et/r2/ and README.md.\n")
+        draft = base / "handover.md"
         draft.write_text("Handover.")
         with mock.patch.object(sys, "stdout", io.StringIO()):
             self.assertEqual(main(["--data-root", str(self.root), "handover", "et", str(draft)]), 0)
-        self.assertTrue(et_old.exists())  # drafts.prune_towers is ["dt"] by default
+        for gone in (old_dir, short, loose):
+            self.assertFalse(gone.exists(), gone)
+        for kept in (mixed, named, venv / "lib" / "torch.py", draft):
+            self.assertTrue(kept.exists(), kept)
+        self.assertIn("Never published.",
+                      (self.root / "archive" / "unpublished" / "et" / "scratch_rescore" / "TASK-plan.md").read_text())
+        self.assertFalse((base / "records").exists())  # the subdirectories are a DT rule only
+
+    def test_vt_keeps_only_drafts_that_the_live_layers_name(self):
+        base = self.root / "runtime" / "drafts" / "vt"
+        logged = self._old(base / "rollout-71514bc6" / "a.py")
+        live = self._old(base / "grad-aaaf1453" / "a.py")
+        (self.root / "archive" / "vt-log-2026-11.md").write_text("# VT\n\n## Log\n\nExported rollout-71514bc6.\n")
+        (self.root / "worklog" / "vt.md").write_text("# VT worklog\n\nOpen: grad-aaaf1453 export.\n")
+        draft = self.root / "h.md"
+        draft.write_text("Handover.")
+        with mock.patch.object(sys, "stdout", io.StringIO()) as out:
+            self.assertEqual(main(["--data-root", str(self.root), "handover", "vt", str(draft)]), 0)
+        self.assertIn("not named in worklog/ or state/", out.getvalue())
+        self.assertFalse(logged.parent.exists())  # the archive log alone does not keep a VT draft
+        self.assertTrue(live.exists())  # the worklog header (not a session entry) names it
+        # A name only in a session entry of the worklog moves to the archive at the handover and no longer
+        # keeps a VT draft: the handover text and the summary carry what the next session needs.
+        moved = self._old(base / "stats-011" / "a.py")
+        (self.root / "worklog" / "vt.md").write_text("# VT worklog\n\n## 2026-11-01 session\n\n- used stats-011\n")
+        with mock.patch.object(sys, "stdout", io.StringIO()):
+            self.assertEqual(main(["--data-root", str(self.root), "handover", "vt", str(draft)]), 0)
+        self.assertFalse(moved.parent.exists())
+
+    def test_dt2_is_not_pruned_and_dry_run_deletes_nothing(self):
+        dt2_old = self._old(self.root / "runtime" / "drafts" / "dt2" / "old.py")
+        draft = self.root / "h.md"
+        draft.write_text("Handover.")
+        with mock.patch.object(sys, "stdout", io.StringIO()):
+            self.assertEqual(main(["--data-root", str(self.root), "handover", "dt2", str(draft)]), 0)
+        self.assertTrue(dt2_old.exists())  # drafts.prune_towers is dt, et, vt
         dt_old = self._old(self.root / "runtime" / "drafts" / "dt" / "old.py")
         with mock.patch.object(sys, "stdout", io.StringIO()) as out:
             self.assertEqual(main(["--data-root", str(self.root), "drafts", "prune", "dt", "--dry-run"]), 0)

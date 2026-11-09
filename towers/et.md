@@ -58,7 +58,7 @@ Run these commands from the harness repository.
 
 28. Find the data root with `bin/harness root`. The workspace repositories are in `<data-root>/workspace/`. Their keys are in `workspaces` in `<data-root>/config.json`.
 29. Use only the servers and repositories in `servers` in `<data-root>/config.json`. Do not guess a path.
-30. Write each draft in `<data-root>/runtime/drafts/et/`.
+30. Write each draft in `<data-root>/runtime/drafts/et/`. At each `bin/harness handover et`, the harness deletes each top-level file or directory there whose newest file is older than 7 days and whose name does not occur in `archive/`, `worklog/`, or `state/`. A virtual environment (a directory with `pyvenv.cfg`, such as `rollout-venv/`) always stays. To keep an older file or directory, such as the only copy of a log from a rented server, name it in your handover or summary.
 31. Publish a draft with `bin/harness publish <task|report> <draft> --actor ET`. The command prints a reference `ID@sha256:<hex>`.
 32. Use only published references in records and messages. Do not edit a file in `<data-root>/records/`.
 33. Read records with `bin/harness show <ID or reference>` and `bin/harness list <kind>`.

@@ -101,7 +101,7 @@ def init_data_root(path: Path, write_pointer: bool = True) -> Path:
     for kind in KINDS:
         (path / "records" / kind).mkdir(parents=True, exist_ok=True)
     (path / "artifacts").mkdir(exist_ok=True)
-    (path / "archive").mkdir(exist_ok=True)
+    (path / "archive" / "reports").mkdir(parents=True, exist_ok=True)
     index = path / "archive" / "INDEX.md"
     if not index.exists():
         index.write_text(ARCHIVE_INDEX_TEMPLATE, encoding="utf-8")
@@ -623,21 +623,23 @@ def _sections(text: str) -> Iterator[tuple[str, str]]:
 
 
 def _tokens(text: str) -> list[str]:
-    return re.findall(r"[a-z0-9][a-z0-9_.-]*", text.lower())
+    # Hangul runs are tokens too: the reports for the researcher (archive/reports/) are in Korean.
+    return re.findall(r"[a-z0-9][a-z0-9_.-]*|[\uac00-\ud7a3]+", text.lower())
 
 
 def archive_search(root: Path, query: str, limit: int = 8) -> list[dict[str, Any]]:
-    """BM25 over the sections of archive/*.md and the bodies of the Markdown records.
+    """BM25 over the sections of archive/**/*.md (with the reports in archive/reports/) and the bodies of the Markdown records.
 
     The corpus is small and written in STE English with a controlled vocabulary, so keyword
     search finds what a tower needs (researcher decision 2026-11-02, no external search tool)."""
     documents: list[tuple[str, str, str]] = []  # (path, heading, body)
-    sources = sorted((root / "archive").glob("*.md"))
+    archive = root / "archive"
+    sources = sorted(archive.rglob("*.md"))
     for kind in ("handoff", "report", "verdict", "directive"):
         sources += sorted((root / "records" / kind).glob("*.md"))
     for path in sources:
         text = path.read_text(encoding="utf-8", errors="replace")
-        if path.parent.name != "archive":
+        if not path.is_relative_to(archive):
             try:
                 text = split_front_matter(text)[1]
             except RecordError:

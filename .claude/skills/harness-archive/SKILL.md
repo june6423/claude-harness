@@ -13,6 +13,7 @@ description: How the research record is layered (PROJECT_STATE, handover summary
 | `worklog/<tower>-summary.md` | What must the next session of this tower know to continue? | `limits.handover_summary_chars` (default 8000) | each tower, rewritten at each rotation |
 | `worklog/<tower>.md` | What did this session do, and why? | one session; `harness handover` moves the entries to `archive/<tower>-log-<YYYY-MM>.md` | each tower |
 | `archive/<EXPERIMENT-ID>.md`, `archive/<tower>-log-<YYYY-MM>.md` | What happened in a closed experiment, in full? What did each session do? | none | DT (experiment files), `harness handover` (log files) |
+| `archive/reports/<YYYY-MM-DD>_<experiment or topic>_<kind>.md` | What did DT tell the researcher (plans, result reports, analyses, decision requests)? | none; Korean | DT (DT rule 15a) |
 
 `archive/INDEX.md` has one line for each archive file: `file | experiment or period | dates | result in one sentence | search words`. Records in `records/` stay the evidence. The archive is notes about them.
 
@@ -54,7 +55,7 @@ Rewrite `worklog/<tower>-summary.md` at each rotation. Keep: the current experim
 ## How to find something
 
 1. Read `archive/INDEX.md` for the experiment or period.
-2. Run `bin/harness archive search <words>`. It ranks the sections of `archive/*.md` and the bodies of handoffs, reports, verdicts, and directives (BM25 keyword search, no external tool). Use the words of the records: experiment IDs, gate IDs, metric names, arm names, dates.
+2. Run `bin/harness archive search <words>`. It ranks the sections of `archive/**/*.md` (with `archive/reports/`) and the bodies of handoffs, reports, verdicts, and directives (BM25 keyword search, no external tool). Use the words of the records: experiment IDs, gate IDs, metric names, arm names, dates.
 3. Read the section the result names. For a number, open the record itself with `bin/harness show <ID>`.
 
 The documents are STE English with a controlled vocabulary, so a keyword search finds what a semantic search would. When a search returns nothing, try the synonyms that the records use, or read the chronology of the experiment file.

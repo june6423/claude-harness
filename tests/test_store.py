@@ -277,6 +277,17 @@ class StoreTest(unittest.TestCase):
         self.assertEqual(archive_search(self.root, "zzzz-nothing"), [])
         self.assertEqual(archive_search(self.root, "masking-kd a100")[0]["heading"], "2026-10-11")
 
+    def test_archive_search_finds_korean_reports(self):
+        from harness.store import archive_search
+        reports = self.root / "archive" / "reports"
+        self.assertTrue(reports.is_dir())  # init made the reports directory
+        (reports / "2026-11-09_VLM-DEMO-001_계획안.md").write_text(
+            "# VLM-DEMO-001 계획안\n\n## 목적\n\n그래디언트 분석으로 상태 누출을 확인한다 (VLM-DEMO-001).\n")
+        hits = archive_search(self.root, "그래디언트")
+        self.assertEqual(hits[0]["path"], "archive/reports/2026-11-09_VLM-DEMO-001_계획안.md")
+        self.assertEqual(hits[0]["heading"], "목적")
+        self.assertEqual(archive_search(self.root, "vlm-demo-001")[0]["path"].split("/")[1], "reports")
+
     def test_report_needs_sections(self):
         handoff = self.publish_handoff()
         front = {"kind": "report", "experiment_id": "VLM-OPSD-TRANSPLANT-001", "handoff": handoff.ref,

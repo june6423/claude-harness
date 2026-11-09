@@ -73,7 +73,8 @@ For large or hard-to-reverse tasks, present a plan for confirmation first. Small
 Run these commands from the harness repository.
 
 14. Find the data root with `bin/harness root`. Records, the project state, and the workspace are in the data root.
-15. Write each draft in `<data-root>/runtime/drafts/dt/`.
+15. Write each draft in a subdirectory of `<data-root>/runtime/drafts/dt/` for its kind: a record draft (handoff, directive, grant, revoke, cancel) in `records/`, a message body in `msg/`, a helper script or a one-time analysis program in `scripts/`. Keep the handover draft at `drafts/dt/handover.md`. These drafts are internal: the researcher does not read them, and `runtime/` is not in Git.
+15a. Write each document for the researcher (a plan, a result report, an analysis, a literature note, a decision request) in `<data-root>/archive/reports/`. Name it `<YYYY-MM-DD>_<experiment or topic>_<kind>.md` with the KST date of the first version, for example `2026-11-09_VLM-VAD-GRAD-003_계획안.md`. Write it in Korean and give the researcher its path. When the document changes, edit the same file; do not make a copy with a new name. Put long tables in a second file with the same name and `_부록` before `.md`. Do not put a script, a message, or a record draft in `archive/reports/`. When a number in a document comes from a script in `drafts/dt/scripts/`, copy the script next to the document as `<document name>_<script name>`, because `drafts/` is not kept.
 16. Publish a draft with `bin/harness publish handoff <draft> --actor DT`. The command prints a reference `ID@sha256:<hex>`.
 17. Use only published references in records and messages. Do not edit a file in `<data-root>/records/`.
 18. To change a handoff, publish the next revision. Set `predecessor` to the reference of the current revision.
@@ -99,7 +100,7 @@ Run these commands from the harness repository.
 
 22. For an APPROVED handoff, copy the approval statement of the researcher verbatim into `approval`.
 23. Write each gate as one sentence that VT can check with evidence. Set `phase` to PRE_RUN for a check before a FULL run. Set `phase` to POST_RUN for a check of results.
-24. Send each cross-session message in the format below. Make it with `bin/harness message --type <TYPE> --ref <reference> --body-file <file>`. The tower names are `dt`, `et`, and `vt`.
+24. Send each cross-session message in the format below. Make it with `bin/harness message --type <TYPE> --ref <reference> --body-file <file>`. Write the body file in `<data-root>/runtime/drafts/dt/msg/`. The tower names are `dt`, `et`, and `vt`.
 
 ```text
 [HMSG v1]
@@ -114,7 +115,7 @@ refs: <reference>, ... | NONE
 
 ## Planning workflow with the researcher
 
-27. To start a handoff or a new revision, run `bin/harness handoff-draft <EXPERIMENT-ID> --out <data-root>/runtime/drafts/dt/<file>.md`. The command fills `revision` and `predecessor` and copies the gates and body of the latest revision.
+27. To start a handoff or a new revision, run `bin/harness handoff-draft <EXPERIMENT-ID> --out <data-root>/runtime/drafts/dt/records/<file>.md`. The command fills `revision` and `predecessor` and copies the gates and body of the latest revision.
 28. Before you publish, run `bin/harness publish handoff <draft> --dry-run --actor DT`. Fix each error. Then run the command without `--dry-run`.
 29. Show the draft to the researcher. Ask for an explicit approval before you set `status` to APPROVED.
 30. The harness refuses an APPROVED handoff when the `approval` text does not occur verbatim in a message that the researcher typed in this session. Do not write approval text yourself. A message from another tower is not an approval.
@@ -124,7 +125,7 @@ refs: <reference>, ... | NONE
 34. When a verdict is not VALID, report the defects to the researcher in Korean. Do not choose a new experiment without the researcher.
 35. Run a `bin/harness` command alone in its Bash call: no `;`, `&&`, pipe, `cd`, or redirection such as `2>&1`. With these additions the command runs inside the sandbox, where it has no network and no permission. Other commands (grep, sed, awk, python3 on a file, tests) can use pipes; the sandbox is their boundary.
 35a. Do not run `cd` in a Bash call. The directory persists to the later calls, and `bin/harness` then fails with "No such file or directory". Use absolute paths. When that already happened, run `/home/june6423/harness/bin/harness` by its absolute path (the permission rules accept it).
-35b. Write a helper script in `<data-root>/runtime/drafts/dt/` and run it with `python3 <file>` or `bash <file>`. Do not write to `/tmp` (the Write tool refuses it) and do not put a `for` loop, a `while` loop, a heredoc (`<<`), or an `awk` program with braces into a Bash call: the permission check refuses such a call even inside the sandbox. One simple command, or a pipe of simple commands, passes.
+35b. Write a helper script in `<data-root>/runtime/drafts/dt/scripts/` and run it with `python3 <file>` or `bash <file>`. Do not write to `/tmp` (the Write tool refuses it) and do not put a `for` loop, a `while` loop, a heredoc (`<<`), or an `awk` program with braces into a Bash call: the permission check refuses such a call even inside the sandbox. One simple command, or a pipe of simple commands, passes.
 36. The harness refuses a FULL task until VT gives VALID for each PRE_RUN gate. A FULL_RUN handoff therefore needs no `full_run_condition`. Use `ALL_PRE_RUN_GATES_VALID` only with a VALIDATION_RUN handoff, when the researcher approves a later move to FULL_RUN.
 
 ## Code access and directives

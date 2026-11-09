@@ -631,6 +631,7 @@ A long tower session loses quality and costs more for each turn. A tower gets a 
 | D24 | The record has four layers: PROJECT_STATE.md (research narrative, five fixed sections, 9000 chars), the handover summary (8000 chars, rewritten at each rotation), the session worklog, and `archive/` (full history by experiment, with INDEX.md). | 2026-11-02 |
 | D26 | `context_rotate_tokens` is 300000 again (was 600000 since 2026-10-16): every turn carries the whole context, so a lower limit cuts the input tokens of a long session, and the layered record makes a rotation cheap. | 2026-11-02 |
 | D25 | Retrieval from the archive is `harness archive search`, a stdlib BM25 over Markdown sections. No external search tool or vector store. | 2026-11-02 |
+| D27 | DT writes each document for the researcher in `archive/reports/` (in Git, dated file name, one file for each document). Internal drafts stay in `runtime/drafts/dt/` in the subdirectories `records/`, `msg/`, and `scripts/`. | 2026-11-09 |
 
 Reason for D18: VT is the gate for FULL runs and for result acceptance, so a missed defect becomes a research conclusion. A DT error in design or paper reading spreads to all later work. ET uses the most tokens, and its failures show in run results and VT verdicts.
 
@@ -708,6 +709,15 @@ The new settings and rules apply when a tower session starts. The daemon applies
 1. Fable use from 2026-11-01 to 11-08 (transcript tokens, input with cache): VT about 140 M (63 %), the maintenance session about 56 M (25 %, it ran on Fable from 11-02 to 11-05 with a context of about 500 k tokens), DT and DT2 about 26 M (12 %, on 11-02 before the switch to Opus). From 11-03 only VT used Fable.
 2. VT rotated 10 times from 11-03 to 11-07 for 11 verdicts. Each session started at 46 k tokens and ended near 300 k (one reached 480 k); the mean context was about 200 k. The context grew from full record reads (`show` 15 to 26 times a session), `harness list` (76 k chars, every record with its SHA-256), full diffs, and source files.
 3. Changes: `harness list` prints IDs and status, the newest 40 by default (`--refs`, `--all`); `harness show --front` and `--section <heading>` print a part of a record; the context guard also runs after each tool call and tells the tower once a session to end the turn when the context is over the limit; every tower may use subagents (`Agent`), and the rules tell VT (45 to 50), DT (74), and ET (82) to read records once and to give heavy reading to a subagent.
+
+## 28. Reports for the researcher apart from drafts (2026-11-09)
+
+1. Problem: `runtime/drafts/dt/` held 305 files in one directory: about 110 record drafts, 86 message bodies, 71 scripts, and about 28 documents for the researcher (plans, result reports, analyses). The researcher could not find the newest report. The names mixed styles (`handoff-...-r1.md` and `HANDOFF-...-R6.md`, `msg_` and `msg-`), and the date was at the end of the name, so a name sort was not a time sort. `runtime/` is not in Git, so the reports had no backup.
+2. Decision D27 (researcher, 2026-11-09): DT writes each document for the researcher in `archive/reports/<YYYY-MM-DD>_<experiment or topic>_<kind>.md` and edits the same file when the document changes. Internal drafts go to `runtime/drafts/dt/records/`, `msg/`, and `scripts/`. A script that made a number in a report is copied next to the report. DT rules 15, 15a, 24, 27, and 35b.
+3. `archive/reports/` is in the archive because DT already has the write permission there (settings and sandbox), so the change needs no new settings and no tower restart: a session started with `--resume` reads `towers/dt.md` at each request. `init` creates the directory.
+4. `harness archive search` reads `archive/**/*.md` (it read only `archive/*.md`) and makes a token of each run of Hangul syllables, because the reports are in Korean. It does not remove Korean particles, so "계획안을" and "계획안" are different tokens.
+5. DT2 is not changed: its settings allow only `archive/*-dt2.md`, and its rules D4 and D10 (which have priority) keep its drafts and notes in `runtime/drafts/dt2/`.
+6. Records and the message ledger keep the published text of each record draft and message, so the drafts in `records/` and `msg/` are copies after publication. The cleanup of old drafts is the next step (proposal 2), not part of D27.
 
 ## 9. Open decisions
 

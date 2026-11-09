@@ -1,6 +1,6 @@
-# Harness Design — Phase 0
+# Harness Design
 
-Status: APPROVED by the researcher on 2026-10-08. Phase 0 is complete (section 8.1). Phase 1 is complete (section 10.5). Phase 2 is complete (section 11.6). Phase 4 is complete (section 14.2).
+Status: APPROVED by the researcher on 2026-10-08. The decision tables (sections 1, 15, and 19) give each decision with its date, and each later section gives its date. The acceptance results of the first build are in sections 8.1, 10.5, 11.6, and 14.2.
 
 ## 1. Decisions
 
@@ -45,21 +45,21 @@ Status: APPROVED by the researcher on 2026-10-08. Phase 0 is complete (section 8
                                       │ task records
                                       ▼
                ┌──────────────────────────────────────────────┐
-               │ executor (Phase 1): authorize, preflight,     │
+               │ executor: authorize, preflight,               │
                │ run over SSH and docker, write result record  │
                └──────────────────────────────────────────────┘
 ```
 
-| Component | Kind | Phase |
-|---|---|---|
-| Record store and schemas | Python library, stdlib only | 0 |
-| `harness` CLI | Python command | 0 |
-| Journal | Append-only JSONL file | 0 |
-| Message ledger | Hook command, no model tokens | 0 |
-| Executor | Python daemon | 1 |
-| Tower agent definitions | `.claude/agents/*.md` | 0 |
-| Tower settings: inbound policy and ledger hook | `settings/<tower>.json` | 0 |
-| Tower settings: permission rules and sandbox | `settings/<tower>.json` | 2 |
+| Component | Kind |
+|---|---|
+| Record store and schemas | Python library, stdlib only |
+| `harness` CLI | Python command |
+| Journal | Append-only JSONL file |
+| Message ledger | Hook command, no model tokens |
+| Executor | Python daemon |
+| Tower agent definitions | `.claude/agents/*.md` |
+| Tower settings: inbound policy and ledger hook | `settings/<tower>.json` |
+| Tower settings: permission rules and sandbox | `settings/<tower>.json` |
 
 ## 4. Directory layout
 
@@ -170,7 +170,7 @@ Rules for `run` and `allocate-run`:
 2. The entrypoint runs inside the container. The executor does not run host Python. With runtime `direct`, the server itself is the container (for example a vast.ai CUDA instance), and the entrypoint runs on it without `docker exec`.
 3. A FULL task needs `pre_run_verdict`. The executor checks that the verdict is VALID, has kind PRE_RUN, and names the same commit and handoff.
 
-`docker-setup` is out of the Phase 1 scope. Container setup stays a manual researcher action until a later phase.
+There is no `docker-setup` task mode. Container setup is a manual researcher action, or a temporary server-only change by ET under a `CONTAINER_SETUP` grant (section 17).
 
 ### 5.4 Result (executor writes)
 
@@ -262,7 +262,7 @@ A tower does not write the journal directly.
 9. VT publishes a POST_RUN verdict. VT sends `VERDICT_READY` to ET and DT.
 10. DT accepts the result only if the POST_RUN verdict is VALID. DT reports to the researcher in Korean.
 
-There is no central controller in Phases 0 to 3. The researcher starts the towers. Budgets and automatic loops belong to Phase 5.
+There is no central controller (researcher decision 2026-10-10). The researcher starts the towers, and each tower acts on the records and messages that it receives. Budgets are in section 16.
 
 ## 7. Tower launch
 
@@ -295,9 +295,9 @@ The command `harness tower start <tower>` wraps this command. After the launch, 
 1. A resumed conversation keeps the system prompt of its first request. A change to `towers/<tower>.md` takes effect in a new conversation or after compaction.
 2. The workspace must be trusted before the first `--bg` launch.
 
-## 8. Phase 0 scope
+## 8. Record store and CLI (2026-10-08)
 
-Phase 0 builds these items:
+The first build made these items:
 
 1. The package skeleton and the `harness` CLI with `publish`, `show`, `list`, and `verify` commands.
 2. Schemas and validators for handoff, task, result, report, verdict, and message header.
@@ -313,7 +313,7 @@ Exit criteria:
 3. The CLI refuses each invalid fixture with a specific error.
 4. Two test sessions exchange one message. The ledger has one sent entry and one received entry.
 
-### 8.1 Phase 0 result (2026-10-08)
+### 8.1 Acceptance result (2026-10-08)
 
 | Exit criterion | Result | Evidence |
 |---|---|---|
@@ -322,7 +322,7 @@ Exit criteria:
 | 3. The CLI refuses invalid fixtures with a specific error. | PASS | Tests in `tests/test_store.py` check each error text. |
 | 4. Two sessions exchange one message and the ledger records it. | PASS | Live test with the `et` and `vt` agents, settings, and Haiku: one `sent` entry and one `received` entry, both with a parsed header. |
 
-## 10. Phase 1 — Executor
+## 10. Executor
 
 ### 10.1 Server configuration
 
@@ -378,7 +378,7 @@ Each server repository is a checkout that only the harness uses, such as `/home/
 - `inspect`: the server agent runs in plan mode without Edit and Write. The result message is its final text.
 - `allocate-run`: not implemented. The executor gives a REJECTED result.
 
-### 10.5 Phase 1 result (2026-10-08)
+### 10.5 Acceptance result (2026-10-08)
 
 | Check | Result |
 |---|---|
@@ -394,7 +394,7 @@ Each server repository is a checkout that only the harness uses, such as `/home/
 3. A task needs a running container. The executor does not create containers. A `direct` runtime needs a running server only.
 4. SSH connection sockets are in `/tmp/harness-<uid>/ssh/` (mode 700). A socket under a long data root path was over the Unix socket path limit (found 2026-10-08).
 
-## 11. Phase 2 — Tower permissions and ET operation
+## 11. Tower permissions and ET operation
 
 ### 11.1 Settings
 
@@ -439,7 +439,7 @@ After ET publishes a task, ET starts `harness wait <task>` as a background comma
 3. Claude Code protects `~/.claude`. A data root under `~/.claude` makes draft writes fail.
 4. A tower model refuses a step that its rules forbid before the permission system decides. Permission tests must state that the researcher authorized the attempt.
 
-### 11.6 Phase 2 result (2026-10-08)
+### 11.6 Acceptance result (2026-10-08)
 
 | Check | Result |
 |---|---|
@@ -524,7 +524,7 @@ Server `POSTECH_900_A6000_8`, container `VLM_EGG_QUAL_A6000_001`, a new test fol
 5. `artifacts/` is inside the data root Git repository. All towers can read it.
 6. SSH test on the A6000 server (2026-10-08): a 29-byte metrics file was copied with a matching SHA-256. A 3 MB file went to `fetch_skipped` with the size reason.
 
-## 14. Phase 4 — DT operation
+## 14. DT operation
 
 ### 14.1 Features
 
@@ -539,7 +539,7 @@ Server `POSTECH_900_A6000_8`, container `VLM_EGG_QUAL_A6000_001`, a new test fol
 7. `harness git <repo> <push|fetch|pull|ls-remote>` is the network Git path for ET. The sandbox hides `~/.local/bin/gh`, so the Git credential helper fails in the sandbox. The command runs outside the sandbox, uses only `origin`, requires the origin URL to equal the configured workspace remote, and refuses force, delete, mirror, and refspec forms that rewrite or remove history. ET settings deny `git remote add`, `remote set-url`, `config`, and pushes to an explicit URL.
 8. `docs/OPERATIONS.md` is the Korean guide for the researcher.
 
-### 14.2 Phase 4 result (2026-10-08)
+### 14.2 Acceptance result (2026-10-08)
 
 | Check | Result |
 |---|---|

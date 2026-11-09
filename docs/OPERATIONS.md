@@ -1,6 +1,6 @@
 # 연구자 운영 가이드
 
-이 문서는 연구자가 DT·ET·VT와 executor를 직접 띄우고, 실험을 기획부터 결과 보고까지 진행하는 방법을 설명합니다. 자동 cycle(Phase 5)은 아직 없으므로 각 Tower는 연구자가 시작합니다. 단계 사이의 전달은 Tower끼리 cross-session 메시지로 합니다.
+이 문서는 연구자가 DT·ET·VT와 executor를 직접 띄우고, 실험을 기획부터 결과 보고까지 진행하는 방법을 설명합니다. Tower를 중앙에서 돌리는 자동 cycle은 두지 않으므로(2026-10-10 결정) 각 Tower는 연구자가 시작합니다. 단계 사이의 전달은 Tower끼리 cross-session 메시지로 합니다.
 
 모든 명령은 harness repo(예: `~/harness`)에서 실행합니다. 데이터 경로(`<data-root>`)는 `.harness-data-root`가 가리키는 곳이고, `bin/harness root`로 확인합니다. 처음 설치는 `docs/SETUP.md`를 봅니다.
 

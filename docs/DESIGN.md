@@ -632,6 +632,7 @@ A long tower session loses quality and costs more for each turn. A tower gets a 
 | D26 | `context_rotate_tokens` is 300000 again (was 600000 since 2026-10-16): every turn carries the whole context, so a lower limit cuts the input tokens of a long session, and the layered record makes a rotation cheap. | 2026-11-02 |
 | D25 | Retrieval from the archive is `harness archive search`, a stdlib BM25 over Markdown sections. No external search tool or vector store. | 2026-11-02 |
 | D27 | DT writes each document for the researcher in `archive/reports/` (in Git, dated file name, one file for each document). Internal drafts stay in `runtime/drafts/dt/` in the subdirectories `records/`, `msg/`, and `scripts/`. | 2026-11-09 |
+| D28 | At each `harness handover dt` the harness deletes DT drafts older than 7 days that no kept layer names, and moves an unpublished record draft to `archive/unpublished/dt/`. | 2026-11-09 |
 
 Reason for D18: VT is the gate for FULL runs and for result acceptance, so a missed defect becomes a research conclusion. A DT error in design or paper reading spreads to all later work. ET uses the most tokens, and its failures show in run results and VT verdicts.
 
@@ -718,6 +719,14 @@ The new settings and rules apply when a tower session starts. The daemon applies
 4. `harness archive search` reads `archive/**/*.md` (it read only `archive/*.md`) and makes a token of each run of Hangul syllables, because the reports are in Korean. It does not remove Korean particles, so "계획안을" and "계획안" are different tokens.
 5. DT2 is not changed: its settings allow only `archive/*-dt2.md`, and its rules D4 and D10 (which have priority) keep its drafts and notes in `runtime/drafts/dt2/`.
 6. Records and the message ledger keep the published text of each record draft and message, so the drafts in `records/` and `msg/` are copies after publication. The cleanup of old drafts is the next step (proposal 2), not part of D27.
+
+## 29. Cleanup of old drafts (2026-11-09)
+
+1. Decision D28 (researcher, 2026-11-09): the harness removes old DT drafts at each `harness handover dt` (module `harness/drafts.py`). The rule is mechanical, so the harness applies it and not a tower (the same reason as §26.6). DT2, ET, and VT are not in scope: `config.json` `drafts.prune_towers` (default `["dt"]`) and `drafts.keep_days` (default 7) set it.
+2. A draft stays when it is younger than `keep_days` (by mtime), when it is `handover.md` or the handover draft of the call, when it is in a hidden directory, or when its file name occurs in `archive/**/*.md`, `worklog/*.md`, or `state/*.md`. The cleanup runs after the worklog append, so a draft that the new handover names stays. A false match of a short name keeps a file; it never deletes one.
+3. An old record draft (JSON front matter with a record `kind`) whose body, with white space made equal, is the body of no record goes to `archive/unpublished/<tower>/`: it is the only copy of a plan. Every other old file is deleted: the records keep the published drafts, the message ledger keeps the messages, and the scripts were for one time. `__pycache__` goes at any age.
+4. The journal event `DRAFTS_PRUNED` lists each deleted and each moved file. `bin/harness drafts prune <tower> [--dry-run] [--keep-days N]` applies the same rule by hand.
+5. First run on 2026-11-09 in faculty-opsd: 106 files deleted, 1 moved (`HANDOFF-VLM-VISIONOPD-REPRO-001-R3.md`, drafted and never published), 9 old files kept because the archive names them. The other record drafts matched a published record exactly.
 
 ## 9. Open decisions
 

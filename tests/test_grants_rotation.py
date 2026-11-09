@@ -164,6 +164,67 @@ class RotationTest(unittest.TestCase):
         self.assertIn("Handover one.", logs[0].read_text())  # the earlier handover moved too
         self.assertEqual((self.root / "archive" / "INDEX.md").read_text().count(logs[0].name), 1)
 
+    def _old(self, path: Path, text: str = "x", days: float = 10) -> Path:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+        stamp = path.stat().st_mtime - days * 86400
+        os.utime(path, (stamp, stamp))
+        return path
+
+    def test_handover_prunes_old_dt_drafts(self):
+        base = self.root / "runtime" / "drafts" / "dt"
+        old_msg = self._old(base / "msg" / "msg_et_001.txt")
+        old_flat = self._old(base / "notes.md")
+        draft_front = '---\n{"kind": "directive", "experiment_id": "VLM-X-001"}\n---\n'
+        unpublished = self._old(base / "records" / "DIRECTIVE-plan.md", draft_front + "## Plan\n\nOnly copy of a plan.\n")
+        (self.root / "records" / "directive" / "DIRECTIVE-VLM-X-001-001.md").write_text(
+            '---\n{"kind": "directive", "id": "DIRECTIVE-VLM-X-001-001"}\n---\n## Plan\n\nPublished  text.\n')
+        published = self._old(base / "records" / "DIRECTIVE-pub.md", draft_front + "## Plan\n\nPublished text.\n")
+        old_script = self._old(base / "scripts" / "one_time.py")
+        cited = self._old(base / "scripts" / "cited_check.py")
+        pending = self._old(base / "records" / "HANDOFF-VLM-X-002-R1.md")
+        cache = self._old(base / "__pycache__" / "a.cpython-312.pyc", days=0)
+        hidden = self._old(base / ".claude" / "x.json")
+        handover = self._old(base / "handover.md", "Handover text. Pending: records/HANDOFF-VLM-X-002-R1.md")
+        new_script = base / "scripts" / "today.py"
+        new_script.write_text("x")
+        (self.root / "archive" / "reports").mkdir(parents=True, exist_ok=True)
+        (self.root / "archive" / "reports" / "2026-11-01_X_결과보고서.md").write_text("Made by cited_check.py.\n")
+        with mock.patch.object(sys, "stdout", io.StringIO()) as out:
+            self.assertEqual(main(["--data-root", str(self.root), "handover", "dt", str(handover)]), 0)
+        self.assertIn("deleted 5 old drafts", out.getvalue())
+        self.assertIn("moved 1 unpublished record drafts", out.getvalue())
+        for gone in (old_msg, old_flat, old_script, cache.parent, published, unpublished):
+            self.assertFalse(gone.exists(), gone)
+        moved = self.root / "archive" / "unpublished" / "dt" / "DIRECTIVE-plan.md"
+        self.assertIn("Only copy of a plan.", moved.read_text())
+        for kept in (cited, pending, hidden, handover, new_script):
+            self.assertTrue(kept.exists(), kept)  # cited, named in the new handover, hidden, the draft, new
+        for name in ("records", "msg", "scripts"):
+            self.assertTrue((base / name).is_dir())
+        events = [json.loads(l) for l in (self.root / "journal.jsonl").read_text().splitlines()]
+        pruned = [e for e in events if e.get("event") == "DRAFTS_PRUNED"]
+        self.assertEqual(pruned[-1]["count"], 5)
+        self.assertIn("msg/msg_et_001.txt", pruned[-1]["files"])
+        self.assertEqual(pruned[-1]["archived"], ["records/DIRECTIVE-plan.md"])
+
+    def test_handover_does_not_prune_other_towers_and_dry_run_deletes_nothing(self):
+        et_old = self._old(self.root / "runtime" / "drafts" / "et" / "old.py")
+        draft = self.root / "h.md"
+        draft.write_text("Handover.")
+        with mock.patch.object(sys, "stdout", io.StringIO()):
+            self.assertEqual(main(["--data-root", str(self.root), "handover", "et", str(draft)]), 0)
+        self.assertTrue(et_old.exists())  # drafts.prune_towers is ["dt"] by default
+        dt_old = self._old(self.root / "runtime" / "drafts" / "dt" / "old.py")
+        with mock.patch.object(sys, "stdout", io.StringIO()) as out:
+            self.assertEqual(main(["--data-root", str(self.root), "drafts", "prune", "dt", "--dry-run"]), 0)
+        self.assertIn("would delete 1", out.getvalue())
+        self.assertIn("old.py", out.getvalue())
+        self.assertTrue(dt_old.exists())
+        with mock.patch.object(sys, "stdout", io.StringIO()):
+            self.assertEqual(main(["--data-root", str(self.root), "drafts", "prune", "dt", "--keep-days", "30"]), 0)
+        self.assertTrue(dt_old.exists())  # 10 days old, younger than 30
+
     def test_handover_warns_when_the_summary_is_over_the_limit(self):
         (self.root / "worklog").mkdir(exist_ok=True)
         (self.root / "worklog" / "et-summary.md").write_text("x" * 9000)

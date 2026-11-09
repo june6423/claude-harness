@@ -8,7 +8,7 @@ import os
 import sys
 from pathlib import Path
 
-from . import journal, messages, tower
+from . import drafts, journal, messages, tower
 from .records import KINDS, RecordError, kind_of_id
 from .store import ACTORS, Store, find_data_root, init_data_root
 
@@ -243,6 +243,10 @@ def cmd_handover(args) -> int:
     request.write_text(json.dumps({"tower": args.tower, "requested_at": stamp}) + "\n", encoding="utf-8")
     journal.append(Store(root).journal_path, {"actor": args.tower.upper(), "event": "HANDOVER",
                                                "worklog": str(worklog.relative_to(root))})
+    rules = drafts.settings(Store(root).config())
+    if args.tower in rules["prune_towers"]:
+        # After the worklog append: a draft that the new handover names stays.
+        _prune_drafts(root, args.tower, float(rules["keep_days"]), keep=(Path(args.file),), actor=args.tower.upper())
     print(f"handover written to {worklog}. End your turn. The executor daemon starts a new session.")
     summary = root / "worklog" / f"{args.tower}-summary.md"
     limit = Store(root).limits()["handover_summary_chars"]
@@ -253,6 +257,37 @@ def cmd_handover(args) -> int:
                                                    "chars": size, "limit": limit})
         print(f"warning: {summary.name} has {size} characters; the limit is {limit} (handover_summary_chars). "
               "The next session must move the entries about closed experiments to archive/ first.")
+    return 0
+
+
+def _prune_drafts(root: Path, tower_name: str, keep_days: float, keep: tuple[Path, ...] = (),
+                  actor: str = "HARNESS", dry_run: bool = False) -> dict[str, list[Path]]:
+    result = drafts.prune(root, tower_name, keep_days, dry_run=dry_run, keep=keep)
+    base = root / "runtime" / "drafts" / tower_name
+    deleted = [str(p.relative_to(base)) for p in result["deleted"]]
+    archived = [str(p.relative_to(base)) for p in result["archived"]]
+    if (deleted or archived) and not dry_run:
+        journal.append(Store(root).journal_path, {"actor": actor, "event": "DRAFTS_PRUNED", "tower": tower_name,
+                                                   "keep_days": keep_days, "count": len(deleted), "files": deleted,
+                                                   "archived": archived})
+    verbs = ("would delete", "would move") if dry_run else ("deleted", "moved")
+    print(f"{verbs[0]} {len(deleted)} old drafts in runtime/drafts/{tower_name}/ (older than {keep_days:g} days, "
+          f"not named in archive/, worklog/, or state/); {verbs[1]} {len(archived)} unpublished record drafts "
+          f"to archive/unpublished/{tower_name}/")
+    return result
+
+
+def cmd_drafts(args) -> int:
+    """Delete the old drafts of a tower now, with the rule that `handover` applies."""
+    root = find_data_root(args.data_root)
+    rules = drafts.settings(Store(root).config())
+    keep_days = float(rules["keep_days"] if args.keep_days is None else args.keep_days)
+    result = _prune_drafts(root, args.tower, keep_days, actor="RESEARCHER", dry_run=args.dry_run)
+    if args.dry_run:
+        base = root / "runtime" / "drafts" / args.tower
+        for action, paths in (("delete", result["deleted"]), ("archive", result["archived"])):
+            for path in paths:
+                print(f"  {action}  {path.relative_to(base)}{'/' if path.is_dir() else ''}")
     return 0
 
 
@@ -421,6 +456,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("tower", choices=tower.TOWERS)
     p.add_argument("file")
     p.set_defaults(func=cmd_handover)
+
+    p = sub.add_parser("drafts", help="delete the old drafts of a tower (handover does this for drafts.prune_towers)")
+    p.add_argument("action", choices=("prune",))
+    p.add_argument("tower", choices=tower.TOWERS)
+    p.add_argument("--keep-days", type=float, help="default: drafts.keep_days in config.json (7)")
+    p.add_argument("--dry-run", action="store_true", help="print the files and delete nothing")
+    p.set_defaults(func=cmd_drafts)
 
     p = sub.add_parser("archive", help="search the archive and the record bodies by keywords (BM25)")
     p.add_argument("action", choices=("search",))

@@ -14,6 +14,7 @@ description: How the research record is layered (PROJECT_STATE, handover summary
 | `worklog/<tower>.md` | What did this session do, and why? | one session; `harness handover` moves the entries to `archive/<tower>-log-<YYYY-MM>.md` | each tower |
 | `archive/<EXPERIMENT-ID>.md`, `archive/<tower>-log-<YYYY-MM>.md` | What happened in a closed experiment, in full? What did each session do? | none | DT (experiment files), `harness handover` (log files) |
 | `archive/reports/<YYYY-MM-DD>_<experiment or topic>_<kind>.md` | What did DT tell the researcher (plans, result reports, analyses, decision requests)? | none; Korean | DT (DT rule 15a) |
+| `archive/unpublished/<tower>/` | Which record drafts were written but never published? (not evidence) | none | `harness handover` (draft cleanup, DESIGN §29) |
 
 `archive/INDEX.md` has one line for each archive file: `file | experiment or period | dates | result in one sentence | search words`. Records in `records/` stay the evidence. The archive is notes about them.
 

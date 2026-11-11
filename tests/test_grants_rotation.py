@@ -3,7 +3,9 @@ import json
 import os
 import sys
 import tempfile
+import time
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
 
@@ -317,6 +319,57 @@ class RotationTest(unittest.TestCase):
             self.assertIn("new ET session after a context rotation", args[3])
             self.assertTrue(kwargs["replace"])
         self.assertFalse(request.exists())
+
+    def test_turn_ended_reads_the_transcript(self):
+        from harness import tower as towers
+        repo = Path(self.tmp.name) / "repo"
+        home = Path(self.tmp.name) / "home"
+        with mock.patch.object(Path, "home", return_value=home):
+            folder = towers.transcript_dir(repo)
+            folder.mkdir(parents=True)
+
+            def write(*entries):
+                lines = [json.dumps(e) for e in entries] + ["not json"]
+                (folder / "s1.jsonl").write_text("\n".join(lines) + "\n")
+
+            text = {"type": "assistant", "timestamp": "2026-11-11T05:57:34.000Z",
+                    "message": {"content": [{"type": "text", "text": "done"}]}}
+            tool = {"type": "assistant", "timestamp": "2026-11-11T05:57:34.000Z",
+                    "message": {"content": [{"type": "tool_use", "name": "Bash", "input": {}}]}}
+            result = {"type": "user", "timestamp": "2026-11-11T05:57:40.000Z",
+                      "message": {"content": [{"type": "tool_result", "content": "x"}]}}
+            later = datetime(2026, 11, 11, 6, 5, tzinfo=timezone.utc).timestamp()
+            write({"type": "user", "message": {"content": "hi"}}, text, {"type": "system", "subtype": "x"})
+            self.assertTrue(towers.turn_ended("s1", 180, now=later, repo=repo))
+            self.assertFalse(towers.turn_ended("s1", 180, now=later - 400, repo=repo))  # too recent
+            write(text, tool)
+            self.assertFalse(towers.turn_ended("s1", 180, now=later, repo=repo))  # a tool runs
+            write(tool, result)
+            self.assertFalse(towers.turn_ended("s1", 180, now=later, repo=repo))  # the model works on a result
+            write(text, {"type": "user", "timestamp": "2026-11-11T05:58:00.000Z", "message": {"content": "next"}})
+            self.assertFalse(towers.turn_ended("s1", 180, now=later, repo=repo))  # a new prompt
+            self.assertFalse(towers.turn_ended("missing", 180, now=later, repo=repo))
+
+    def test_executor_rotates_a_tower_stuck_in_working_after_its_turn(self):
+        request = self.root / "runtime" / "rotate" / "dt.json"
+        request.parent.mkdir(parents=True, exist_ok=True)
+        request.write_text("{}")
+        executor = Executor(Store(self.root))
+        stuck = [{"name": "dt", "state": "working", "status": "idle", "sessionId": "s1"}]
+        with mock.patch("harness.tower.named", return_value=stuck), \
+                mock.patch("harness.tower.turn_ended", return_value=True), \
+                mock.patch("harness.tower.start", return_value={"sessionId": "s2"}) as start:
+            self.assertEqual(executor.rotate_towers(), [])  # the request is new: wait
+            start.assert_not_called()
+            old = time.time() - 400
+            os.utime(request, (old, old))
+            with mock.patch("harness.tower.turn_ended", return_value=False):
+                self.assertEqual(executor.rotate_towers(), [])  # a tool runs: wait
+            with mock.patch.object(sys, "stdout", io.StringIO()):
+                self.assertEqual(executor.rotate_towers(), ["dt"])
+        self.assertFalse(request.exists())
+        events = [json.loads(l) for l in (self.root / "journal.jsonl").read_text().splitlines()]
+        self.assertTrue([e for e in events if e.get("event") == "TOWER_ROTATED"][-1]["stuck_working"])
 
 
 class KeepAliveTest(unittest.TestCase):

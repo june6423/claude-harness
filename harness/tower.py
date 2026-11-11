@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import time
+from datetime import datetime
 from pathlib import Path
 
 from .records import RecordError
@@ -190,6 +192,43 @@ def last_model(session_id: str, repo: Path = REPO_ROOT) -> str | None:
             if entry.get("type") == "assistant":
                 model = (entry.get("message") or {}).get("model") or model
     return model
+
+
+def turn_ended(session_id: str, quiet_seconds: float, now: float | None = None, repo: Path = REPO_ROOT,
+               tail_bytes: int = 1 << 20) -> bool:
+    """True when the transcript shows an ended turn: the last user or assistant entry is an assistant
+    message without a tool call, and it is at least quiet_seconds old.
+
+    A running tool leaves its tool_use entry last (no tool_result yet), a model that is generating
+    writes a new entry within seconds, and a waiting user message is a user entry, so each of them
+    gives False. Used when Claude Code keeps the job state "working" after the turn ended (seen
+    2026-11-11: DT stayed "working" for 13 minutes after its handover)."""
+    path = transcript_dir(repo) / f"{session_id}.jsonl"
+    if not session_id or not path.exists():
+        return False
+    with path.open("rb") as handle:
+        handle.seek(0, os.SEEK_END)
+        size = handle.tell()
+        handle.seek(max(0, size - tail_bytes))
+        lines = handle.read().decode("utf-8", errors="replace").splitlines()
+    for line in reversed(lines):
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if entry.get("type") not in ("user", "assistant") or entry.get("isSidechain"):
+            continue
+        if entry["type"] != "assistant":
+            return False
+        content = (entry.get("message") or {}).get("content")
+        if isinstance(content, list) and any(isinstance(b, dict) and b.get("type") == "tool_use" for b in content):
+            return False
+        try:
+            stamp = datetime.fromisoformat(str(entry.get("timestamp", "")).replace("Z", "+00:00")).timestamp()
+        except ValueError:
+            return False
+        return (time.time() if now is None else now) - stamp >= quiet_seconds
+    return False
 
 
 KEEPALIVE_HOLD_SECONDS = 300

@@ -35,6 +35,8 @@ KEEPALIVE_RETRY_SECONDS = 300
 # A session that started less than this long ago can show no process yet. On 2026-10-30 the daemon
 # respawned a DT session 2 seconds after the rotation started it.
 KEEPALIVE_START_GRACE_SECONDS = 180
+STUCK_WORKING_SECONDS = 300  # a rotation request older than this may rotate a session stuck in "working"
+TURN_QUIET_SECONDS = 180  # ... when its transcript shows an ended turn at least this old
 DEFAULT_FETCH_MAX_FILE_BYTES = 1 << 20
 DEFAULT_FETCH_MAX_TOTAL_BYTES = 20 << 20
 
@@ -177,8 +179,17 @@ class Executor:
                 # ended its turn with a background wait (such as an until-loop on records) stays busy
                 # until the wait ends, which can take hours (seen 2026-10-30 for DT). The new session
                 # starts its own waits from the handover.
-                if any(s.get("state") == "working" for s in sessions):
-                    continue
+                working = [s for s in sessions if s.get("state") == "working"]
+                stuck = False
+                if working:
+                    # Claude Code can keep the state "working" after the turn ended (2026-11-11: DT for 13
+                    # minutes after its handover). After STUCK_WORKING_SECONDS, rotate when each transcript
+                    # shows an ended turn that is TURN_QUIET_SECONDS old; a running tool never shows that.
+                    if time.time() - request.stat().st_mtime < STUCK_WORKING_SECONDS or not all(
+                            towers.turn_ended(s.get("sessionId", ""), TURN_QUIET_SECONDS) for s in working):
+                        continue
+                    stuck = True
+                    print(f"{utc()} {name} state is 'working' but its turn ended; rotating", flush=True)
                 model = towers.tower_model(name, self.store.root)
                 new = towers.start(name, self.store.root, model, towers.rotation_prompt(name, self.store.root),
                                    replace=True)
@@ -187,7 +198,7 @@ class Executor:
                 journal.append(self.store.journal_path, {
                     "actor": "EXECUTOR", "event": "TOWER_ROTATED", "tower": name,
                     "old_sessions": [s.get("sessionId") for s in sessions], "new_session": new.get("sessionId"),
-                    "remote_control": link})
+                    "remote_control": link, "stuck_working": stuck})
                 if link:
                     print(f"{utc()} {name} remote control: {link}", flush=True)
                 rotated.append(name)

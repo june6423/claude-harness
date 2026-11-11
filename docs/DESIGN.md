@@ -732,6 +732,12 @@ The new settings and rules apply when a tower session starts. The daemon applies
 7. Changes: `prune_towers` is `["dt", "et", "vt"]`. The unit is a top-level file or directory (the age of a directory is its newest file or subdirectory time, so a copy with old file times stays 7 days after the copy); only the DT subdirectories `records/`, `msg/`, and `scripts/` are judged file by file. A directory with `pyvenv.cfg` always stays. A name matches only as a whole name ("r2" does not match "pr2"). A tower in `live_reference_towers` (default `["vt"]`) keeps a draft only when `worklog/` or `state/` names it, because the archive logs name VT exports in passing and an export can be made again; ET keeps the archive scope, because a log copied from a rented server can be the only copy. `handover` moves the old session entries to the archive before the cleanup, so for VT the names that count are those in the worklog header, the new handover, and the summary. An unpublished record draft in a removed directory also goes to `archive/unpublished/<tower>/<directory>/`.
 8. First run of the extension on 2026-11-09: see the data-root commit of that day (dry run: ET 419 entries, VT 128 entries and 1 unpublished verdict draft, DT 0).
 
+## 30. Rotation of a session stuck in "working" (2026-11-11)
+
+1. Problem: DT wrote its handover at 05:57:16Z and ended its turn at 05:57:34Z, but the Claude Code job state stayed "working". The daemon rotates only a tower that is not "working" (section 18, fix of 2026-10-30), so the new DT session started at 06:10:52Z, after the researcher asked DT a question and that turn ended. The median delay of the 81 rotations until then was 0.3 minutes.
+2. Change: when the rotation request is at least `STUCK_WORKING_SECONDS` (300) old, the daemon also rotates a "working" session whose transcript shows an ended turn (`tower.turn_ended`): the last user or assistant entry is an assistant message without a tool call, and it is at least `TURN_QUIET_SECONDS` (180) old. A running tool leaves its `tool_use` entry last, a model that works on a tool result has a user entry last, and a new prompt is a user entry, so none of them rotates. The journal event `TOWER_ROTATED` gets `stuck_working: true`.
+3. Check on the transcript of 2026-11-11: cut at 06:02:30Z the check gives an ended turn (the rotation would have come about 5 minutes after the handover); cut at 05:59:00Z (too recent) and during two tool calls it gives no ended turn.
+
 ## 9. Open decisions
 
 None. The researcher accepted O1 to O3 as D9 to D11.

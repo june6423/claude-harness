@@ -114,6 +114,7 @@ setsid nohup bin/harness --data-root $T executor watch >> $T/runtime/logs/execut
 | `worklog/<tower>.md` | 이번 세션의 작업 기록. 세션 교체 때 `harness handover`가 `archive/<tower>-log-YYYY-MM.md`로 자동으로 옮깁니다 | 한 세션 분량 |
 | `archive/<실험 ID>.md`, `archive/<tower>-log-*.md` | 닫힌 실험의 전체 기록. `archive/INDEX.md`에 한 줄씩 목록 | 없음 |
 | `archive/reports/<YYYY-MM-DD>_<실험 또는 주제>_<종류>.md` | DT가 연구자에게 쓴 계획안·결과보고서·분석·결정요청. 파일 이름이 날짜로 시작하므로 `ls`의 이름순이 곧 시간순입니다. 고칠 때는 같은 파일을 고칩니다 | 없음 |
+| `archive/reports/scripts/<보고서 이름>_<파일 이름>` | 보고서의 숫자를 계산한 스크립트와 데이터 파일. 보고서 폴더에는 md 문서만 둡니다(2026-11-11부터) | 없음 |
 
 DT의 내부 초안은 `runtime/drafts/dt/` 아래 종류별 폴더에 있습니다: `records/`(handoff·directive 초안), `msg/`(tower 사이 메시지 본문), `scripts/`(일회용 스크립트). 연구자가 읽을 문서는 이 폴더에 두지 않습니다. `runtime/`은 Git에 들어가지 않으므로 보관할 문서는 모두 `archive/reports/`에 있습니다(2026-11-09부터).
 

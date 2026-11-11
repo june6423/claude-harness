@@ -634,6 +634,7 @@ A long tower session loses quality and costs more for each turn. A tower gets a 
 | D27 | DT writes each document for the researcher in `archive/reports/` (in Git, dated file name, one file for each document). Internal drafts stay in `runtime/drafts/dt/` in the subdirectories `records/`, `msg/`, and `scripts/`. | 2026-11-09 |
 | D28 | At each `harness handover dt` the harness deletes DT drafts older than 7 days that no kept layer names, and moves an unpublished record draft to `archive/unpublished/dt/`. | 2026-11-09 |
 | D29 | The draft cleanup also runs for ET and VT, by top-level entry. Virtual environments always stay. VT keeps only the drafts that `worklog/` or `state/` names. | 2026-11-09 |
+| D30 | DT2 writes its documents for the researcher like DT: `archive/reports/<YYYY-MM-DD>_<topic>_<kind>_DT2.md`, scripts in `archive/reports/scripts/`, internal drafts in `drafts/dt2/records/` and `scripts/`. The draft cleanup runs for DT2 too. | 2026-11-11 |
 
 Reason for D18: VT is the gate for FULL runs and for result acceptance, so a missed defect becomes a research conclusion. A DT error in design or paper reading spreads to all later work. ET uses the most tokens, and its failures show in run results and VT verdicts.
 
@@ -718,7 +719,7 @@ The new settings and rules apply when a tower session starts. The daemon applies
 2. Decision D27 (researcher, 2026-11-09): DT writes each document for the researcher in `archive/reports/<YYYY-MM-DD>_<experiment or topic>_<kind>.md` and edits the same file when the document changes. Internal drafts go to `runtime/drafts/dt/records/`, `msg/`, and `scripts/`. A script that made a number in a report is copied to `archive/reports/scripts/<report name>_<script name>` (changed 2026-11-11: the copies next to the reports mixed 18 programs into the document list, so the researcher asked for a subdirectory). DT rules 15, 15a, 24, 27, and 35b.
 3. `archive/reports/` is in the archive because DT already has the write permission there (settings and sandbox), so the change needs no new settings and no tower restart: a session started with `--resume` reads `towers/dt.md` at each request. `init` creates the directory.
 4. `harness archive search` reads `archive/**/*.md` (it read only `archive/*.md`) and makes a token of each run of Hangul syllables, because the reports are in Korean. It does not remove Korean particles, so "계획안을" and "계획안" are different tokens.
-5. DT2 is not changed: its settings allow only `archive/*-dt2.md`, and its rules D4 and D10 (which have priority) keep its drafts and notes in `runtime/drafts/dt2/`.
+5. DT2 was not changed at first. Changed 2026-11-11 (D30, researcher): DT2 rules D4 and D10 follow the same layout with the suffix `_DT2`, and its settings allow `archive/reports/*_DT2*.md` and `archive/reports/scripts/*_DT2*` only, so DT2 cannot edit a DT document.
 6. Records and the message ledger keep the published text of each record draft and message, so the drafts in `records/` and `msg/` are copies after publication. The cleanup of old drafts is the next step (proposal 2), not part of D27.
 
 ## 29. Cleanup of old drafts (2026-11-09)

@@ -268,13 +268,30 @@ class RotationTest(unittest.TestCase):
             self.assertEqual(main(["--data-root", str(self.root), "handover", "vt", str(draft)]), 0)
         self.assertFalse(moved.parent.exists())
 
-    def test_dt2_is_not_pruned_and_dry_run_deletes_nothing(self):
-        dt2_old = self._old(self.root / "runtime" / "drafts" / "dt2" / "old.py")
-        draft = self.root / "h.md"
+    def test_dt2_prunes_its_subdirectories_and_config_can_exclude_a_tower(self):
+        base = self.root / "runtime" / "drafts" / "dt2"
+        old_script = self._old(base / "scripts" / "sim.py")
+        old_grant = self._old(base / "records" / "VIEW-001" / "GRANT-x.md")
+        named = self._old(base / "records" / "VIEW-001" / "HANDOFF-VLM-VAD-VIEW-001-R1.md")
+        (self.root / "worklog" / "dt.md").write_text("# DT worklog\n\nRead HANDOFF-VLM-VAD-VIEW-001-R1.md.\n")
+        draft = base / "handover.md"
         draft.write_text("Handover.")
         with mock.patch.object(sys, "stdout", io.StringIO()):
             self.assertEqual(main(["--data-root", str(self.root), "handover", "dt2", str(draft)]), 0)
-        self.assertTrue(dt2_old.exists())  # drafts.prune_towers is dt, et, vt
+        self.assertFalse(old_script.exists())
+        self.assertFalse(old_grant.exists())
+        self.assertTrue(named.exists())  # DT still names it
+        self.assertTrue((base / "scripts").is_dir() and (base / "records").is_dir())
+        self.assertFalse((base / "msg").exists())  # DT2 sends no messages
+        config = json.loads((self.root / "config.json").read_text())
+        config["drafts"] = {"prune_towers": ["dt"]}
+        (self.root / "config.json").write_text(json.dumps(config))
+        et_old = self._old(self.root / "runtime" / "drafts" / "et" / "old.py")
+        with mock.patch.object(sys, "stdout", io.StringIO()):
+            self.assertEqual(main(["--data-root", str(self.root), "handover", "et", str(draft)]), 0)
+        self.assertTrue(et_old.exists())  # et is not in drafts.prune_towers of this config
+
+    def test_dry_run_deletes_nothing(self):
         dt_old = self._old(self.root / "runtime" / "drafts" / "dt" / "old.py")
         with mock.patch.object(sys, "stdout", io.StringIO()) as out:
             self.assertEqual(main(["--data-root", str(self.root), "drafts", "prune", "dt", "--dry-run"]), 0)

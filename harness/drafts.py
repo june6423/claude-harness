@@ -17,7 +17,7 @@ from typing import Any
 from .records import KINDS, RecordError, split_front_matter
 
 DEFAULTS: dict[str, Any] = {
-    "prune_towers": ["dt", "et", "vt"],
+    "prune_towers": ["dt", "et", "vt", "dt2"],
     "keep_days": 7,
     # A tower in this list keeps a draft only when worklog/ or state/ names it, not when only the
     # archive names it. VT work directories are source trees that `git archive <commit>` makes again,
@@ -25,8 +25,9 @@ DEFAULTS: dict[str, Any] = {
     "live_reference_towers": ["vt"],
 }
 KEEP_NAMES = {"handover.md"}
-SUBDIRS = ("records", "msg", "scripts")  # DT rule 15: a file in these is one unit
-SUBDIR_TOWERS = {"dt"}
+# DT rule 15 and DT2 rule D4: a file in these subdirectories is one unit
+SUBDIRS_BY_TOWER = {"dt": ("records", "msg", "scripts"), "dt2": ("records", "scripts")}
+SUBDIR_TOWERS = set(SUBDIRS_BY_TOWER)
 CACHE_DIRS = {"__pycache__"}
 VENV_MARKER = "pyvenv.cfg"  # a Python virtual environment is a tool, not a draft: it always stays
 
@@ -98,7 +99,7 @@ def _units(base: Path, tower: str) -> tuple[list[Path], list[Path]]:
             continue
         if entry.is_dir() and entry.name in CACHE_DIRS:
             caches.append(entry)
-        elif entry.is_dir() and tower in SUBDIR_TOWERS and entry.name in SUBDIRS:
+        elif entry.is_dir() and entry.name in SUBDIRS_BY_TOWER.get(tower, ()):
             for item in sorted(entry.rglob("*")):
                 relative = item.relative_to(entry)
                 if any(part.startswith(".") for part in relative.parts):
@@ -161,8 +162,8 @@ def prune(root: Path, tower: str, keep_days: float, dry_run: bool = False, keep:
             result["deleted"].append(path)
             if not dry_run:
                 path.unlink(missing_ok=True)
-    if not dry_run and tower in SUBDIR_TOWERS:
-        for name in SUBDIRS:
+    if not dry_run:
+        for name in SUBDIRS_BY_TOWER.get(tower, ()):
             (base / name).mkdir(exist_ok=True)
     return result
 

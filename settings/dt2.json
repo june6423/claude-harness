@@ -39,6 +39,8 @@
       "Bash(bin/harness grants *)",
       "Bash(bin/harness archive *)",
       "Edit(/{{DATA_ROOT}}/archive/*-dt2.md)",
+      "Edit(/{{DATA_ROOT}}/archive/reports/*_DT2*.md)",
+      "Edit(/{{DATA_ROOT}}/archive/reports/scripts/*_DT2*)",
       "Edit(/{{DATA_ROOT}}/archive/INDEX.md)",
       "mcp__claude_ai_Google_Slides",
       "Bash(awk *)",

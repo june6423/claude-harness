@@ -47,6 +47,7 @@ The goal is reliability, not autonomy for its own sake. An agent can propose, im
 | **ET** — Engineering Tower | `towers/et.md` | Implementation, tests, remote runs, monitoring | Change and commit code, publish tasks and reports, reach configured servers over SSH | Push except through `harness git`; start a FULL run without a VALID verdict from VT |
 | **VT** — Validation Tower | `towers/vt.md` | Independent review of ET's code, runs, and claims | Read everything, run local checks, publish verdicts | Change code or records of other towers |
 | **DT2** (optional) | `towers/dt2.md` | A discussion-only copy of DT for a second line of thought | Discuss and write drafts | Publish, send messages, or change state |
+| **DT3** (optional) | `towers/dt3.md` | A copy of DT2 that makes the slides for research meetings (Google Slides) | Read records and documents; write slide plans and fill a presentation | Publish, send messages, or change state |
 
 Each tower is a background Claude Code session (`claude --bg --agent <name> --name <name>`) with its own agent definition (`.claude/agents/`), rules file (`towers/`), and settings (`settings/<tower>.json`). Towers can also be reached from a phone through Claude Code Remote Control.
 

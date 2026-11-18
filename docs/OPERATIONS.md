@@ -73,6 +73,17 @@ DT와 같은 맥락에서 다른 방향을 따로 토론하고 싶을 때 씁니
 
 DT2는 **토론 전용**입니다. record를 게시하지 못하고, ET·VT에 메시지를 보내지 못하며, PROJECT_STATE.md도 고치지 못합니다. 결정한 내용은 DT2가 `runtime/drafts/dt2/`에 초안으로 쓰고, 연구자가 그 경로를 DT에게 넘겨 게시하게 합니다. 끝낼 때는 `bin/harness tower stop dt2`를 실행합니다. 다시 복제하려면 `bin/harness tower fork dt2 --replace`를 씁니다.
 
+## 2.4.1 연구미팅 슬라이드용 세션 (DT3)
+
+DT3는 DT2를 복제한 세션으로, 연구미팅 슬라이드를 만듭니다(2026-11-18부터). DT2는 연구 논의를 이어 가고, DT3는 기록과 보고서에 있는 숫자로 Google Slides를 채웁니다. DT3도 record를 게시하거나 다른 Tower에 메시지를 보내지 못합니다.
+
+```bash
+bin/harness tower fork dt3     # DT2의 worklog와 요약을 복사해 DT3를 시작
+```
+
+- Google Slides 연결기는 새 발표 파일을 만들지 못합니다. 빈 발표 파일(또는 랩 템플릿 사본)의 링크를 DT3에게 주세요.
+- 슬라이드 구성안은 `archive/reports/<날짜>_<미팅 또는 주제>_슬라이드_DT3.md`에 남습니다. 숫자마다 출처가 적히고, VT 검증을 받지 않은 숫자는 "미검증"으로 표시됩니다.
+
 ## 2.5 휴대폰에서 Tower 보기 (Remote Control)
 
 `config.json`의 `towers.remote_control`에 Tower 이름을 적으면(예: `["dt", "dt2"]`, 전부는 `true`) 그 Tower는 Remote Control이 켜진 채 시작됩니다. claude.ai/code나 Claude 앱의 세션 목록에서 Tower 이름(`dt`, `dt2`)으로 보입니다.

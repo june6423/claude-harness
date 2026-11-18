@@ -12,10 +12,25 @@ from pathlib import Path
 from .records import RecordError
 from .store import REPO_ROOT
 
-TOWERS = ("dt", "et", "vt", "dt2")
-# A fork tower starts from the handover of its source tower and adds its own rules to the source rules.
-# Researcher decision (2026-10-20): DT2 is a discussion-only copy of DT.
-FORKS = {"dt2": "dt"}
+TOWERS = ("dt", "et", "vt", "dt2", "dt3")
+# A fork tower starts from the handover of its source tower and adds its own rules to the rules of its
+# source chain (DT3: dt.md, then dt2.md, then dt3.md).
+# Researcher decisions: DT2 is a discussion-only copy of DT (2026-10-20); DT3 is a copy of DT2 that makes
+# the slides for research meetings while DT2 continues the discussion (2026-11-18).
+FORKS = {"dt2": "dt", "dt3": "dt2"}
+FORK_ROLES = {
+    "dt2": ("a discussion-only copy of DT", "Continue the open discussion."),
+    "dt3": ("a copy of DT2 that makes the slides for research meetings and publishes no record",
+            "Continue the open slide work."),
+}
+
+
+def lineage(tower: str) -> list[str]:
+    """The source chain of a tower, root first: lineage("dt3") is ["dt", "dt2", "dt3"]."""
+    chain = [tower]
+    while chain[0] in FORKS:
+        chain.insert(0, FORKS[chain[0]])
+    return chain
 # Researcher decision (2026-10-10): every model call is Opus 5.5 or stronger.
 MODEL_IDS = {"opus": "claude-opus-5-5", "fable": "claude-fable-5-1"}
 DEFAULT_TOWER_MODEL = "opus"
@@ -48,7 +63,10 @@ def remote_control(tower: str, data_root: Path) -> bool:
 
 def tower_model(tower: str, data_root: Path) -> str:
     models = tower_config(data_root).get("models") or {}
-    return models.get(tower) or models.get(FORKS.get(tower, tower), DEFAULT_TOWER_MODEL)
+    for name in reversed(lineage(tower)):  # a fork follows its source tower unless it has its own model
+        if models.get(name):
+            return models[name]
+    return DEFAULT_TOWER_MODEL
 # Files that the Claude Code sandbox covers in the working directory (list from Claude Code 2.1.294).
 # bubblewrap fails when it must create one of them itself and part of the directory is read-only.
 SANDBOX_PLACEHOLDERS = (".gitconfig", ".gitmodules", ".bashrc", ".bash_profile", ".zshrc", ".zprofile",
@@ -107,13 +125,12 @@ def render_settings(tower: str, data_root: Path, repo: Path = REPO_ROOT) -> Path
 
 
 def render_rules(tower: str, data_root: Path, repo: Path = REPO_ROOT) -> Path:
-    """The rules file of a tower. A fork tower gets the rules of its source tower, then its own rules."""
+    """The rules file of a tower. A fork tower gets the rules of its source chain, then its own rules."""
     own = repo / "towers" / f"{tower}.md"
     names = peers(data_root)
     if tower not in FORKS and names[tower] == tower:
         return own
-    parts = [(repo / "towers" / f"{FORKS[tower]}.md").read_text(encoding="utf-8")] if tower in FORKS else []
-    parts.append(own.read_text(encoding="utf-8"))
+    parts = [(repo / "towers" / f"{name}.md").read_text(encoding="utf-8") for name in lineage(tower)]
     if names[tower] != tower:
         listed = ", ".join(f"`{t}` is `{n}`" for t, n in names.items() if t not in FORKS)
         parts.append(f"# Session names\n\nThis project runs a separate tower cycle. The session name of each tower "
@@ -255,7 +272,7 @@ def rotation_prompt(tower: str, data_root: Path) -> str:
             "experiments to archive/ first (load the harness-archive skill).\n"
             f"2. Read the last Handover section in {worklog}/{tower}.md.\n"
             "3. Run bin/harness status and bin/harness messages --last 20.\n"
-            + ("4. Continue the open discussion.\n" if tower in FORKS else
+            + (f"4. {FORK_ROLES[tower][1]}\n" if tower in FORKS else
                "4. Continue the open work. Start again each background wait for a task that has no result.\n")
             + "5. Tell the researcher in Korean, with times in KST (UTC+9), that a new session started and what "
               "you continue.")
@@ -263,14 +280,14 @@ def rotation_prompt(tower: str, data_root: Path) -> str:
 
 def fork_prompt(tower: str, data_root: Path) -> str:
     worklog = data_root / "worklog"
-    return (f"This is a new {tower.upper()} session. It is a discussion-only copy of {FORKS[tower].upper()}. "
+    return (f"This is a new {tower.upper()} session. It is {FORK_ROLES[tower][0]}. "
             f"The harness copied the {FORKS[tower].upper()} worklog into your worklog.\n"
             f"1. Read {worklog}/{tower}-summary.md if it exists.\n"
             f"2. Read the last Handover section in {worklog}/{tower}.md.\n"
             "3. Run bin/harness status and bin/harness messages --last 20.\n"
             "4. Do not continue the open work of the source tower. Wait for the researcher.\n"
             f"5. Tell the researcher in Korean, with times in KST (UTC+9), that {tower.upper()} started, what context you have, "
-            "and that you are discussion-only.")
+            f"and what your role is: {FORK_ROLES[tower][0]}.")
 
 
 def fork(tower: str, data_root: Path, model: str | None = None, replace: bool = False) -> dict:

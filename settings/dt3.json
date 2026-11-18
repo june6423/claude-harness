@@ -1,0 +1,195 @@
+{
+  "crossSessionInbound": "accept",
+  "permissions": {
+    "defaultMode": "dontAsk",
+    "additionalDirectories": [
+      "{{DATA_ROOT}}"
+    ],
+    "blockReadsOutsideWorkingDirectories": true,
+    "allow": [
+      "ListAgents",
+      "Skill",
+      "ToolSearch",
+      "AskUserQuestion",
+      "Bash(bin/harness root)",
+      "Bash(bin/harness show *)",
+      "Bash(bin/harness list)",
+      "Bash(bin/harness list *)",
+      "Bash(bin/harness messages)",
+      "Bash(bin/harness messages *)",
+      "Bash(bin/harness verify)",
+      "Edit(/{{DATA_ROOT}}/runtime/drafts/dt3/**)",
+      "WebSearch",
+      "WebFetch",
+      "Bash(bin/harness handoff-draft *)",
+      "Bash(bin/harness status)",
+      "Bash(bin/harness status *)",
+      "Bash(git -C * log*)",
+      "Bash(git -C * show*)",
+      "Bash(git -C * diff*)",
+      "Bash(git -C * status*)",
+      "Bash(git -C * ls-tree*)",
+      "Bash(git -C * rev-parse*)",
+      "Bash(git -C * branch*)",
+      "Bash(git -C * grep*)",
+      "Edit(/{{DATA_ROOT}}/worklog/dt3.md)",
+      "Edit(/{{DATA_ROOT}}/worklog/dt3-summary.md)",
+      "Bash(bin/harness handover dt3 *)",
+      "Bash(bin/harness grants)",
+      "Bash(bin/harness grants *)",
+      "Bash(bin/harness archive *)",
+      "Edit(/{{DATA_ROOT}}/archive/*-dt3.md)",
+      "Edit(/{{DATA_ROOT}}/archive/reports/*_DT3*.md)",
+      "Edit(/{{DATA_ROOT}}/archive/reports/scripts/*_DT3*)",
+      "Edit(/{{DATA_ROOT}}/archive/INDEX.md)",
+      "mcp__claude_ai_Google_Slides",
+      "Bash(awk *)",
+      "Bash(sed *)",
+      "Bash(grep *)",
+      "Bash(rg *)",
+      "Bash(wc *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(cat *)",
+      "Bash(ls *)",
+      "Bash(find *)",
+      "Bash(sort *)",
+      "Bash(uniq *)",
+      "Bash(cut *)",
+      "Bash(tr *)",
+      "Bash(diff *)",
+      "Bash(stat *)",
+      "Bash(date *)",
+      "Bash(echo *)",
+      "Bash(printf *)",
+      "Bash(sha256sum *)",
+      "Bash(md5sum *)",
+      "Bash(du *)",
+      "Bash(df *)",
+      "Bash(jq *)",
+      "Bash(python3 *)",
+      "Bash(bash *)",
+      "Bash(nvidia-smi *)",
+      "Bash(file *)",
+      "Bash(which *)",
+      "Bash(env *)",
+      "Agent"
+    ],
+    "deny": [
+      "Edit(/{{HARNESS}}/**)",
+      "Bash(bin/harness executor *)",
+      "Bash(bin/harness tower *)",
+      "Bash(bin/harness init *)",
+      "Bash(bin/harness --data-root *)",
+      "Read(/{{DATA_ROOT}}/runtime/logs/**)",
+      "Bash(bin/harness git *)",
+      "Edit(/{{DATA_ROOT}}/workspace/**)",
+      "SendMessage",
+      "Bash(bin/harness publish *)",
+      "Bash(bin/harness message *)",
+      "Edit(/{{DATA_ROOT}}/state/**)",
+      "Edit(/{{DATA_ROOT}}/records/**)",
+      "Edit(/{{DATA_ROOT}}/worklog/dt.md)",
+      "Edit(/{{DATA_ROOT}}/worklog/dt-summary.md)",
+      "Edit(/{{DATA_ROOT}}/worklog/dt2.md)",
+      "Edit(/{{DATA_ROOT}}/worklog/dt2-summary.md)",
+      "Bash(bin/harness cancel *)",
+      "Bash(git push*)",
+      "Bash(git * push)",
+      "Bash(git * push *)",
+      "Edit(/{{DATA_ROOT}}/archive/VLM-*.md)"
+    ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "allowUnsandboxedCommands": false,
+    "autoAllowBashIfSandboxed": true,
+    "excludedCommands": [
+      "bin/harness *",
+      "./bin/harness *",
+      "{{HARNESS}}/bin/harness *"
+    ],
+    "filesystem": {
+      "allowWrite": [
+        "{{DATA_ROOT}}/runtime/drafts/dt3",
+        "{{DATA_ROOT}}/archive"
+      ],
+      "denyWrite": [
+        "{{HARNESS}}"
+      ],
+      "denyRead": [
+        "{{DATA_ROOT}}/runtime/logs"
+      ]
+    },
+    "network": {
+      "allowedDomains": [
+        "*.googleusercontent.com",
+        "lh7-us.googleusercontent.com"
+      ],
+      "strictAllowlist": true
+    }
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "SendMessage",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/message_ledger.py\" --tower dt3"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/dt_guard.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/dt_guard.py\""
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/message_ledger.py\" --tower dt3"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/context_guard.py\" --tower dt3"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/context_guard.py\" --tower dt3"
+          }
+        ]
+      }
+    ]
+  }
+}

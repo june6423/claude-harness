@@ -635,6 +635,7 @@ A long tower session loses quality and costs more for each turn. A tower gets a 
 | D28 | At each `harness handover dt` the harness deletes DT drafts older than 7 days that no kept layer names, and moves an unpublished record draft to `archive/unpublished/dt/`. | 2026-11-09 |
 | D29 | The draft cleanup also runs for ET and VT, by top-level entry. Virtual environments always stay. VT keeps only the drafts that `worklog/` or `state/` names. | 2026-11-09 |
 | D30 | DT2 writes its documents for the researcher like DT: `archive/reports/<YYYY-MM-DD>_<topic>_<kind>_DT2.md`, scripts in `archive/reports/scripts/`, internal drafts in `drafts/dt2/records/` and `scripts/`. The draft cleanup runs for DT2 too. | 2026-11-11 |
+| D31 | DT3 is a fork of DT2 that makes the slides for research meetings. Forks can chain: a fork gets the rules of its whole source chain and follows the nearest source model. | 2026-11-18 |
 
 Reason for D18: VT is the gate for FULL runs and for result acceptance, so a missed defect becomes a research conclusion. A DT error in design or paper reading spreads to all later work. ET uses the most tokens, and its failures show in run results and VT verdicts.
 
@@ -738,6 +739,14 @@ The new settings and rules apply when a tower session starts. The daemon applies
 1. Problem: DT wrote its handover at 05:57:16Z and ended its turn at 05:57:34Z, but the Claude Code job state stayed "working". The daemon rotates only a tower that is not "working" (section 18, fix of 2026-10-30), so the new DT session started at 06:10:52Z, after the researcher asked DT a question and that turn ended. The median delay of the 81 rotations until then was 0.3 minutes.
 2. Change: when the rotation request is at least `STUCK_WORKING_SECONDS` (300) old, the daemon also rotates a "working" session whose transcript shows an ended turn (`tower.turn_ended`): the last user or assistant entry is an assistant message without a tool call, and it is at least `TURN_QUIET_SECONDS` (180) old. A running tool leaves its `tool_use` entry last, a model that works on a tool result has a user entry last, and a new prompt is a user entry, so none of them rotates. The journal event `TOWER_ROTATED` gets `stuck_working: true`.
 3. Check on the transcript of 2026-11-11: cut at 06:02:30Z the check gives an ended turn (the rotation would have come about 5 minutes after the handover); cut at 05:59:00Z (too recent) and during two tool calls it gives no ended turn.
+
+## 31. DT3, a slide fork of DT2 (2026-11-18)
+
+1. Decision D31 (researcher): `bin/harness tower fork dt3` copies the DT2 worklog and summary to `worklog/dt3*.md` and starts DT3. DT3 makes the slides for research meetings; DT2 continues the research discussion.
+2. Forks can chain. `tower.lineage("dt3")` is `["dt", "dt2", "dt3"]`: the rules file of DT3 is `dt.md`, then `dt2.md`, then `dt3.md` (each later file has priority), and the model of DT3 is the model of the nearest tower in that chain with an entry in `towers.models`. `FORK_ROLES` gives the role text of the fork and rotation prompts.
+3. DT3 has the DT2 restrictions (no publish, no cross-session message, no PROJECT_STATE edit) and may not edit the DT or DT2 worklog. It writes its slide plan in `archive/reports/<date>_<meeting or topic>_슬라이드_DT3.md` and its programs in `drafts/dt3/scripts/` (copies of cited programs in `archive/reports/scripts/`). The settings allow only `*_DT3*` files in `archive/reports/`.
+4. Slides are made in Google Slides through the connector (the same tool as for the DT2 slides of 2026-11-02). The connector cannot make a new presentation, so the researcher gives DT3 the link of an empty presentation. `python-pptx` is not installed on this computer.
+5. The draft cleanup runs for DT3 (subdirectory `scripts/`).
 
 ## 9. Open decisions
 

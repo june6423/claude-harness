@@ -517,7 +517,7 @@ class ForkTest(unittest.TestCase):
         self.assertEqual(tower.session_name("dt", self.root), "dt")
         self.assertEqual(tower.render_rules("et", self.root).name, "et.md")
         (self.root / "config.json").write_text(json.dumps({"towers": {"name_suffix": "_tmp", "remote_control": True}}))
-        self.assertEqual(tower.peers(self.root), {"dt": "dt_tmp", "et": "et_tmp", "vt": "vt_tmp", "dt2": "dt2_tmp"})
+        self.assertEqual(tower.peers(self.root), {"dt": "dt_tmp", "et": "et_tmp", "vt": "vt_tmp", "dt2": "dt2_tmp", "dt3": "dt3_tmp"})
         command = tower.start_command("et", self.root)
         self.assertEqual(command[command.index("--name") + 1], "et_tmp")
         self.assertEqual(command[command.index("--agent") + 1], "et")
@@ -546,6 +546,33 @@ class ForkTest(unittest.TestCase):
         self.assertFalse([rule for rule in allow if "publish" in rule or "PROJECT_STATE" in rule])
         self.assertIn(f"Edit(/{self.root}/worklog/dt2.md)", allow)
         self.assertIn("Bash(bin/harness handover dt2 *)", allow)
+
+    def test_dt3_is_a_slide_fork_of_dt2(self):
+        from harness import tower
+        self.assertEqual(tower.lineage("dt3"), ["dt", "dt2", "dt3"])
+        (self.root / "worklog" / "dt2.md").write_text("## Handover\nNext: VIEW-001 slides.\n")
+        (self.root / "worklog" / "dt2-summary.md").write_text("DT2 summary.\n")
+        with mock.patch.object(tower, "named", return_value=[]), \
+                mock.patch.object(tower, "start", return_value={"sessionId": "f3"}) as start:
+            tower.fork("dt3", self.root)
+        self.assertIn("Next: VIEW-001 slides.", (self.root / "worklog" / "dt3.md").read_text())
+        self.assertIn("worklog/dt2-summary.md", (self.root / "worklog" / "dt3-summary.md").read_text())
+        self.assertIn("slides for research meetings", start.call_args.args[3])
+        rules = tower.render_rules("dt3", self.root).read_text()
+        self.assertTrue(rules.startswith("# Discussion Tower (DT)"))
+        self.assertLess(rules.index("# DT2 rules"), rules.index("# DT3 rules"))
+        (self.root / "config.json").write_text(json.dumps({"towers": {"models": {"dt": "fable"}}}))
+        self.assertEqual(tower.tower_model("dt3", self.root), "fable")  # through DT2 to DT
+        (self.root / "config.json").write_text(json.dumps({"towers": {"models": {"dt": "fable", "dt2": "opus"}}}))
+        self.assertEqual(tower.tower_model("dt3", self.root), "opus")  # the nearest source with a model
+        self.assertIn("Continue the open slide work.", tower.rotation_prompt("dt3", self.root))
+        settings = json.loads(tower.render_settings("dt3", self.root).read_text())
+        allow, deny = settings["permissions"]["allow"], settings["permissions"]["deny"]
+        self.assertIn("SendMessage", deny)
+        self.assertIn("Bash(bin/harness publish *)", deny)
+        self.assertIn(f"Edit(/{self.root}/worklog/dt2.md)", deny)
+        self.assertIn(f"Edit(/{self.root}/archive/reports/*_DT3*.md)", allow)
+        self.assertFalse([rule for rule in allow if "dt2" in rule.lower()])
 
 
 if __name__ == "__main__":

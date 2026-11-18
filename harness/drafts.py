@@ -17,7 +17,7 @@ from typing import Any
 from .records import KINDS, RecordError, split_front_matter
 
 DEFAULTS: dict[str, Any] = {
-    "prune_towers": ["dt", "et", "vt", "dt2"],
+    "prune_towers": ["dt", "et", "vt", "dt2", "dt3"],
     "keep_days": 7,
     # A tower in this list keeps a draft only when worklog/ or state/ names it, not when only the
     # archive names it. VT work directories are source trees that `git archive <commit>` makes again,
@@ -26,7 +26,7 @@ DEFAULTS: dict[str, Any] = {
 }
 KEEP_NAMES = {"handover.md"}
 # DT rule 15 and DT2 rule D4: a file in these subdirectories is one unit
-SUBDIRS_BY_TOWER = {"dt": ("records", "msg", "scripts"), "dt2": ("records", "scripts")}
+SUBDIRS_BY_TOWER = {"dt": ("records", "msg", "scripts"), "dt2": ("records", "scripts"), "dt3": ("scripts",)}
 SUBDIR_TOWERS = set(SUBDIRS_BY_TOWER)
 CACHE_DIRS = {"__pycache__"}
 VENV_MARKER = "pyvenv.cfg"  # a Python virtual environment is a tool, not a draft: it always stays

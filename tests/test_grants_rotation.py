@@ -109,6 +109,28 @@ class RotationTest(unittest.TestCase):
         self.assertIn("bin/harness handover et", message)
         self.assertEqual(self.guard(5000, active=True)[0], 0)
 
+    def test_rotation_limit_can_differ_for_each_tower(self):
+        from harness.store import context_rotate_tokens
+        config = {"limits": {"context_rotate_tokens": 1000, "context_rotate_tokens_by_tower": {"dt3": 3000}}}
+        (self.root / "config.json").write_text(json.dumps(config))
+        self.assertEqual(context_rotate_tokens(config, "dt3"), 3000)
+        self.assertEqual(context_rotate_tokens(config, "et"), 1000)
+        self.assertEqual(context_rotate_tokens({}, "dt3"), 300000)  # the default
+        self.assertEqual(self.guard(2000)[0], 2)  # et keeps 1000
+
+        def run(event, tower):
+            err = io.StringIO()
+            with mock.patch.object(sys, "stdin", io.StringIO(json.dumps(event))), mock.patch.object(sys, "stderr", err), \
+                    mock.patch.object(sys, "argv", ["context_guard.py", "--tower", tower]):
+                return context_guard.main()
+        stop = {"hook_event_name": "Stop", "transcript_path": self.transcript(2000)}
+        post = {"hook_event_name": "PostToolUse", "session_id": "s3", "transcript_path": self.transcript(2000)}
+        self.assertEqual(run(stop, "dt3"), 0)  # under the DT3 limit
+        self.assertEqual(run(post, "dt3"), 0)
+        stop["transcript_path"] = post["transcript_path"] = self.transcript(3000)
+        self.assertEqual(run(post, "dt3"), 2)
+        self.assertEqual(run(stop, "dt3"), 2)
+
     def test_handover_writes_worklog_and_request(self):
         draft = Path(self.tmp.name) / "h.md"
         draft.write_text("Current work: task 32 runs.")

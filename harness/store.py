@@ -40,6 +40,15 @@ DEFAULT_LIMITS = {"handoff_body_chars": 16000,  # 16000 since 2026-11-03: fallba
                   # 300000 (researcher decision 2026-11-02): each turn carries the whole context, so a lower
                   # limit cuts the input tokens of long sessions; the layered record makes a rotation cheap.
                   "context_rotate_tokens": 300000}
+
+
+def context_rotate_tokens(config: dict[str, Any], tower: str) -> int:
+    """The context size at which a tower rotates: limits.context_rotate_tokens_by_tower[tower] when it is set,
+    else limits.context_rotate_tokens. Researcher decision 2026-11-23: DT3 edits slides, so its sessions are
+    long by nature; it gets 900000."""
+    limits = {**DEFAULT_LIMITS, **(config.get("limits") or {})}
+    by_tower = limits.get("context_rotate_tokens_by_tower") or {}
+    return int(by_tower.get(tower) or limits["context_rotate_tokens"])
 # The five sections of PROJECT_STATE.md, in this order. dt_guard refuses an edit that drops one.
 PROJECT_STATE_SECTIONS = ("Research question", "Where we stand", "Live hypotheses",
                           "Decisions waiting for the researcher", "Closed experiments")

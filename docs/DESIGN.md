@@ -636,6 +636,7 @@ A long tower session loses quality and costs more for each turn. A tower gets a 
 | D29 | The draft cleanup also runs for ET and VT, by top-level entry. Virtual environments always stay. VT keeps only the drafts that `worklog/` or `state/` names. | 2026-11-09 |
 | D30 | DT2 writes its documents for the researcher like DT: `archive/reports/<YYYY-MM-DD>_<topic>_<kind>_DT2.md`, scripts in `archive/reports/scripts/`, internal drafts in `drafts/dt2/records/` and `scripts/`. The draft cleanup runs for DT2 too. | 2026-11-11 |
 | D31 | DT3 is a fork of DT2 that makes the slides for research meetings. Forks can chain: a fork gets the rules of its whole source chain and follows the nearest source model. | 2026-11-18 |
+| D32 | `limits.context_rotate_tokens_by_tower` sets the rotation limit of one tower. DT3 gets 900000 (three times 300000), because slide editing makes its sessions long. | 2026-11-23 |
 
 Reason for D18: VT is the gate for FULL runs and for result acceptance, so a missed defect becomes a research conclusion. A DT error in design or paper reading spreads to all later work. ET uses the most tokens, and its failures show in run results and VT verdicts.
 
@@ -747,6 +748,7 @@ The new settings and rules apply when a tower session starts. The daemon applies
 3. DT3 has the DT2 restrictions (no publish, no cross-session message, no PROJECT_STATE edit) and may not edit the DT or DT2 worklog. It writes its slide plan in `archive/reports/<date>_<meeting or topic>_슬라이드_DT3.md` and its programs in `drafts/dt3/scripts/` (copies of cited programs in `archive/reports/scripts/`). The settings allow only `*_DT3*` files in `archive/reports/`.
 4. Slides are made in Google Slides through the connector (the same tool as for the DT2 slides of 2026-11-02). The connector cannot make a new presentation, so the researcher gives DT3 the link of an empty presentation. `python-pptx` is not installed on this computer.
 5. The draft cleanup runs for DT3 (subdirectory `scripts/`).
+6. Rotation limit (D32, 2026-11-23): `store.context_rotate_tokens(config, tower)` reads `limits.context_rotate_tokens_by_tower[tower]`, else `limits.context_rotate_tokens`; both checks of the context guard (Stop and after each tool call) use it, and the hook reads the config at each call, so a change needs no restart. The faculty-opsd config sets DT3 to 900000. Limits: the model window is about 1 M tokens and the CLI compacts at about 968 k, so DT3 has about 68 k tokens for the end of the current step and the handover; each DT3 turn near the limit carries up to three times the input tokens of a 300 k session (D26).
 
 ## 9. Open decisions
 

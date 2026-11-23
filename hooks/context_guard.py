@@ -2,7 +2,7 @@
 """Claude Code Stop hook for each tower: rotate the session when the context is large.
 
 After each turn, the hook reads the context size of the latest model request
-from the transcript. When it is at least limits.context_rotate_tokens and the
+from the transcript. When it is at least the rotation limit of the tower (store.context_rotate_tokens) and the
 tower has not written a handover, the hook blocks the stop (exit 2) and tells
 the tower to write one with `bin/harness handover`. The executor daemon then
 starts a new session for the tower. The hook never blocks twice in a row
@@ -53,12 +53,12 @@ def main() -> int:
             return mid_turn(event, args.tower)
         if event.get("hook_event_name") != "Stop" or event.get("stop_hook_active"):
             return 0
-        from harness.store import DEFAULT_LIMITS, find_data_root
+        from harness.store import context_rotate_tokens, find_data_root
         root = find_data_root()
         if (root / "runtime" / "rotate" / f"{args.tower}.json").exists():
             return 0  # the handover is written; the daemon restarts the session
         config = json.loads((root / "config.json").read_text(encoding="utf-8"))
-        limit = {**DEFAULT_LIMITS, **(config.get("limits") or {})}["context_rotate_tokens"]
+        limit = context_rotate_tokens(config, args.tower)
         tokens = context_tokens(event["transcript_path"])
         if tokens < limit:
             return 0
@@ -78,7 +78,7 @@ def mid_turn(event: dict, tower: str) -> int:
     the current step and end the turn, so that the Stop check can rotate it (seen 2026-11-05: one VT
     turn ran from under 300000 to 480000 tokens because the Stop check runs only at the end of a turn)."""
     try:
-        from harness.store import DEFAULT_LIMITS, find_data_root
+        from harness.store import context_rotate_tokens, find_data_root
         root = find_data_root()
         if (root / "runtime" / "rotate" / f"{tower}.json").exists():
             return 0
@@ -86,7 +86,7 @@ def mid_turn(event: dict, tower: str) -> int:
         if marker.exists():
             return 0
         config = json.loads((root / "config.json").read_text(encoding="utf-8"))
-        limit = {**DEFAULT_LIMITS, **(config.get("limits") or {})}["context_rotate_tokens"]
+        limit = context_rotate_tokens(config, tower)
         tokens = context_tokens(event["transcript_path"], tail_bytes=2_000_000)
         if tokens < limit:
             return 0

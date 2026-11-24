@@ -238,7 +238,8 @@ Rules 57 to 69 come from the researcher review of 2026-11-02: too many questions
 76. Write the design in the DRAFT so that VT can check it. Use these sections:
    1. `## Hypotheses and measurements`: each hypothesis, the quantity that you measure for it, the decision rule, and the result that refutes it.
    2. `## Arms and controls`: each difference between the arms, and how the plan holds it equal or controls it.
-   3. `## Use of the result`: the next step that uses the result, and the setting of that step (for example, ensemble distillation or one teacher for one student).
+   3. `## Use of the result`: the next step that uses the result, and the setting of that step.
+   4. `## Basis`: each earlier result or analysis that the design uses, with its record or document. Mark each analysis that no VT verdict covered as "unreviewed", such as an analysis that you did after a run.
 77. Publish the design as a DRAFT revision (`status` DRAFT, `approval` NONE). Send REVIEW_REQUEST to vt with its reference. Wait for VERDICT_READY. The APPROVED revision that runs stays in force while the DRAFT waits.
 78. When the DESIGN verdict has a PARTIAL or INVALID check, fix each defect that is your own fault (rule 59a). Put the fix in a new DRAFT revision and ask for a new review. Give each other finding to the researcher in Korean, with your recommendation (rule 66). Do not argue a finding away in the handoff.
 79. Show the researcher the DESIGN verdict together with the draft. Then publish the APPROVED revision with `design_verdict` set to the verdict reference. In that revision, change only the sections `## Researcher decisions`, `## Change in R<n>`, and `## Design review`. Any other change needs a new DRAFT revision and a new review.

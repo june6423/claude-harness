@@ -56,6 +56,19 @@ class GuardTest(unittest.TestCase):
                              "message": {"content": f"좋아요.  {APPROVAL}  진행하세요"}})
         self.assertEqual(self.run_guard(self.publish_event(t))[0], 0)
 
+    def test_design_override_must_be_researcher_text(self):
+        override = "VT 지적(DQ2, DQ4)을 알고 진행한다."
+        text = handoff().replace('"full_run_condition": "NONE"',
+                                 f'"full_run_condition": "NONE", "design_override": "{override}"')
+        self.draft.write_text(text)
+        only_approval = self.transcript({"type": "user", "origin": {"kind": "human"}, "message": {"content": APPROVAL}})
+        code, message = self.run_guard(self.publish_event(only_approval))
+        self.assertEqual(code, 2)
+        self.assertIn("'design_override' text does not occur verbatim", message)
+        both = self.transcript({"type": "user", "origin": {"kind": "human"},
+                                "message": {"content": f"{APPROVAL} {override}"}})
+        self.assertEqual(self.run_guard(self.publish_event(both))[0], 0)
+
     def test_print_mode_prompt_counts_as_researcher_input(self):
         self.draft.write_text(handoff())
         t = self.transcript({"type": "user", "promptId": "p1", "message": {"content": APPROVAL}})

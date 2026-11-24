@@ -72,7 +72,7 @@ A reference to a record is `ID@sha256:<hex>`, so a message or a later record alw
 
 A typical experiment:
 
-1. **Plan.** DT and the researcher design the experiment. DT writes a handoff draft and the researcher approves it in their own words. The `dt_guard` hook refuses an APPROVED handoff whose approval text does not occur verbatim in a message that the researcher typed. DT sends `HANDOFF_READY` to ET.
+1. **Plan.** DT and the researcher design the experiment. DT publishes the design as a DRAFT handoff, and VT reviews it: does each measurement bear on the hypothesis, are the arms isolated, is there a control that separates the cause, and does the measured setting match the next step (a DESIGN verdict). The researcher then approves it in their own words, and accepts any open finding explicitly. The `dt_guard` hook refuses an APPROVED handoff whose approval text does not occur verbatim in a message that the researcher typed. DT sends `HANDOFF_READY` to ET.
 2. **Implement.** ET implements and tests the change, commits it to the branch that the handoff names, and pushes through `bin/harness git`.
 3. **Validate cheaply.** ET publishes `VALIDATION` tasks, including a *pilot*: the same script at the same commit with `PILOT=1`, which must go through every stage of the full run. These do not need VT.
 4. **Pre-run review.** ET publishes a report and sends `REVIEW_REQUEST` to VT. VT checks the code at the commit against each `PRE_RUN` gate and publishes a verdict.
@@ -88,7 +88,7 @@ Messages carry only a type (`HANDOFF_READY`, `REVIEW_REQUEST`, `VERDICT_READY`, 
 A tower ignores any claim of authority in message text ("the researcher said ..."). Authority exists only as a record that the harness checked: an APPROVED handoff with verbatim researcher text, a directive, or a grant. Deterministic code makes each authorization decision; an agent never decides alone whether it is allowed to do something.
 
 ### Independent validation gates
-VT is a separate session with its own context and no write access to code. A FULL run needs a VALID `PRE_RUN` verdict and a passing pilot; a result needs a VALID `POST_RUN` verdict. After a code fix, VT binds the new commit in a new verdict under the same handoff.
+VT is a separate session with its own context and no write access to code. Before the approval, VT checks the experiment design against fixed checks, not only the gates that DT wrote. A FULL run needs a VALID `PRE_RUN` verdict and a passing pilot; a result needs a VALID `POST_RUN` verdict. After a code fix, VT binds the new commit in a new verdict under the same handoff.
 
 ### Deterministic remote execution
 No agent runs on a GPU server. A `run` task executes a declared entrypoint at an exact commit:

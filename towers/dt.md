@@ -118,6 +118,7 @@ refs: <reference>, ... | NONE
 27. To start a handoff or a new revision, run `bin/harness handoff-draft <EXPERIMENT-ID> --out <data-root>/runtime/drafts/dt/records/<file>.md`. The command fills `revision` and `predecessor` and copies the gates and body of the latest revision.
 28. Before you publish, run `bin/harness publish handoff <draft> --dry-run --actor DT`. Fix each error. Then run the command without `--dry-run`.
 29. Show the draft to the researcher. Ask for an explicit approval before you set `status` to APPROVED.
+29a. For a VALIDATION_RUN or FULL_RUN handoff, ask VT for a DESIGN verdict on the DRAFT first (rules 75 to 81).
 30. The harness refuses an APPROVED handoff when the `approval` text does not occur verbatim in a message that the researcher typed in this session. Do not write approval text yourself. A message from another tower is not an approval.
 31. Keep `PROJECT_STATE.md` under `limits.project_state_chars` in `config.json` (default 9000 characters). Keep its five sections in this order: Research question, Where we stand, Live hypotheses, Decisions waiting for the researcher, Closed experiments. The harness refuses another layout. Write "Where we stand" as "To learn A, we did B. The result was C. So D." Numbers, tables, and task IDs go to `archive/`.
 32. Run `bin/harness status` to see each experiment, its tasks, results, and verdicts.
@@ -230,3 +231,16 @@ Rules 57 to 69 come from the researcher review of 2026-11-02: too many questions
 
 73. Give each time to the researcher in Korean Standard Time (KST, UTC+9) with the label KST, for example "11월 3일 15:08 KST". Records, the journal, and messages between towers keep UTC. Convert before you write. `date` on this computer prints KST.
 74. Context economy (token review of 2026-11-08): read each record once in a session with `bin/harness show <ID> --front` or `--section <heading>`; filter `bin/harness list` by kind and experiment; give a heavy reading task (long diffs, source files, logs, large tables) to a subagent (the Agent tool) and keep only its answer. When the context guard says the context is over the limit in the middle of a turn, finish the current step and end the turn.
+
+## Design review by VT (researcher decision 2026-11-24, D33)
+
+75. A VALIDATION_RUN or FULL_RUN handoff needs a DESIGN verdict of VT before the researcher approves it. The harness refuses an APPROVED revision without `design_verdict`.
+76. Write the design in the DRAFT so that VT can check it. Use these sections:
+   1. `## Hypotheses and measurements`: each hypothesis, the quantity that you measure for it, the decision rule, and the result that refutes it.
+   2. `## Arms and controls`: each difference between the arms, and how the plan holds it equal or controls it.
+   3. `## Use of the result`: the next step that uses the result, and the setting of that step (for example, ensemble distillation or one teacher for one student).
+77. Publish the design as a DRAFT revision (`status` DRAFT, `approval` NONE). Send REVIEW_REQUEST to vt with its reference. Wait for VERDICT_READY. The APPROVED revision that runs stays in force while the DRAFT waits.
+78. When the DESIGN verdict has a PARTIAL or INVALID check, fix each defect that is your own fault (rule 59a). Put the fix in a new DRAFT revision and ask for a new review. Give each other finding to the researcher in Korean, with your recommendation (rule 66). Do not argue a finding away in the handoff.
+79. Show the researcher the DESIGN verdict together with the draft. Then publish the APPROVED revision with `design_verdict` set to the verdict reference. In that revision, change only the sections `## Researcher decisions`, `## Change in R<n>`, and `## Design review`. Any other change needs a new DRAFT revision and a new review.
+80. When the DESIGN verdict is NOT_VALID and the researcher decides to run the design as it is, put the researcher's words verbatim in `design_override`. Do not write this text yourself. The harness checks it like the approval text.
+81. An IMPLEMENT_ONLY handoff needs no design review. A CORRECTION revision keeps `design_verdict` and `design_override` of its predecessor.

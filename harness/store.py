@@ -15,7 +15,7 @@ from typing import Any, Iterator
 
 from . import journal
 from .records import (
-    EXECUTION_MODES, KINDS, NONE, RecordError, extension, kind_of_id, make_ref, parse, parse_ref,
+    DESIGN_CHECKS, EXECUTION_MODES, KINDS, NONE, RecordError, extension, kind_of_id, make_ref, parse, parse_ref,
     serialize, sha256_bytes, split_front_matter, validate,
 )
 
@@ -177,10 +177,14 @@ class Store:
             for record_id in self.ids(each):
                 yield self.load(record_id)
 
-    def latest_handoff(self, experiment_id: str) -> Record | None:
+    def latest_handoff(self, experiment_id: str, approved_only: bool = False) -> Record | None:
+        """The handoff revision with the highest number. With approved_only, the highest APPROVED revision:
+        a DRAFT revision that waits for the VT design review (D33) does not end the grants or the DT
+        directives of the APPROVED revision that runs."""
         best = None
         for record in self.records("handoff"):
             if record.fields.get("experiment_id") == experiment_id and (
+                    not approved_only or record.fields.get("status") == "APPROVED") and (
                     best is None or record.fields["revision"] > best.fields["revision"]):
                 best = record
         return best
@@ -257,7 +261,7 @@ class Store:
                 continue
             if expires.startswith("HANDOFF:"):
                 handoff = self.load(parse_ref(expires[8:])[0])
-                latest = self.latest_handoff(handoff.fields["experiment_id"])
+                latest = self.latest_handoff(handoff.fields["experiment_id"], approved_only=True)
                 if latest is None or latest.ref != expires[8:]:
                     continue
             active.append(grant)
@@ -362,6 +366,9 @@ class Store:
                 errors.append(f"predecessor must be {latest.ref}")
             elif fields.get("approval") == "CORRECTION":
                 self._check_correction(fields, body, latest, errors)
+            elif (fields.get("status") == "APPROVED" and fields.get("authorization") in ("VALIDATION_RUN", "FULL_RUN")
+                  and self.config().get("design_review", self.DESIGN_REVIEW_DEFAULT)):
+                self._check_design(fields, body, resolve, errors)
         elif kind == "task":
             self._check_task(fields, resolve, errors)
         elif kind == "result":
@@ -427,6 +434,58 @@ class Store:
             errors.append("a CORRECTION must keep the '## Researcher decisions' section verbatim")
         if self._section(body, "Correction") is None:
             errors.append("a CORRECTION needs a '## Correction' section that says what it corrects and why")
+        for key in ("design_verdict", "design_override"):
+            if fields.get(key, NONE) != p.get(key, NONE):
+                errors.append(f"a CORRECTION must keep '{key}' of its predecessor")
+
+    DESIGN_EXEMPT_SECTIONS = ("Researcher decisions", "Change in", "Design review")
+    # config.json "design_review" can turn the D33 check off; only the researcher edits config.json. The test
+    # package sets this default to False for the tests that are not about the design review.
+    DESIGN_REVIEW_DEFAULT = True
+
+    @classmethod
+    def design_key(cls, fields: dict[str, Any], body: str) -> str:
+        """The design of a handoff: its fields without the approval fields, and its body without the sections
+        that the approval adds (researcher decisions, the change note, the answer to the design review)."""
+        skip = ("id", "status", "approval", "revision", "predecessor", "design_verdict", "design_override")
+        kept, keep = [], True
+        for line in body.splitlines():
+            if line.startswith("## "):
+                keep = not line[3:].strip().startswith(cls.DESIGN_EXEMPT_SECTIONS)
+            if keep:
+                kept.append(line)
+        design = {k: v for k, v in fields.items() if k not in skip}
+        return json.dumps(design, sort_keys=True) + "\n" + " ".join(" ".join(kept).split())
+
+    def _check_design(self, fields: dict[str, Any], body: str, resolve, errors: list[str]) -> None:
+        """An APPROVED VALIDATION_RUN or FULL_RUN handoff (researcher decision 2026-11-24, D33) cites a DESIGN
+        verdict of VT on a DRAFT revision with the same design. A NOT_VALID design verdict needs
+        'design_override': researcher text that accepts the findings (dt_guard checks that the researcher
+        typed it). Checked at publish time only, so older handoffs stay valid."""
+        ref = fields.get("design_verdict", NONE)
+        if ref == NONE:
+            errors.append("an APPROVED VALIDATION_RUN or FULL_RUN handoff needs 'design_verdict': the reference of "
+                          "a DESIGN verdict of VT on a DRAFT revision with the same design. Publish the design as a "
+                          "DRAFT revision and send REVIEW_REQUEST to vt first")
+            return
+        verdict = resolve(ref, "verdict")
+        if not verdict:
+            return
+        if verdict.fields.get("phase") != "DESIGN":
+            errors.append("'design_verdict' must name a verdict with phase DESIGN")
+            return
+        reviewed = resolve(verdict.fields["handoff"], "handoff")
+        if not reviewed:
+            return
+        if reviewed.fields["experiment_id"] != fields["experiment_id"]:
+            errors.append("the design verdict reviewed a handoff of another experiment")
+        elif self.design_key(reviewed.fields, reviewed.body) != self.design_key(fields, body):
+            errors.append(f"the design changed after the review of {reviewed.record_id}: fields, gates, or body "
+                          "(other than '## Researcher decisions', '## Change in ...', and '## Design review') differ. "
+                          "Publish the changed design as a new DRAFT revision and ask vt for a new DESIGN verdict")
+        if verdict.fields.get("overall") != "VALID" and fields.get("design_override", NONE) == NONE:
+            errors.append(f"{verdict.record_id} is NOT_VALID. The researcher must accept its findings: put the "
+                          "researcher's words verbatim in 'design_override', or change the design and ask for a new review")
 
     def _check_dt_directive(self, fields: dict[str, Any], resolve, errors: list[str]) -> None:
         """A DT directive (researcher decision 2026-11-02) carries an engineering decision of DT under
@@ -439,9 +498,9 @@ class Store:
             errors.append("a DT directive needs an APPROVED handoff")
         if handoff.fields["experiment_id"] != fields["experiment_id"]:
             errors.append("the DT directive and its handoff name different experiments")
-        latest = self.latest_handoff(fields["experiment_id"])
+        latest = self.latest_handoff(fields["experiment_id"], approved_only=True)
         if latest and latest.ref != fields["handoff"]:
-            errors.append(f"a DT directive must name the latest handoff revision {latest.ref}")
+            errors.append(f"a DT directive must name the latest APPROVED handoff revision {latest.ref}")
         count = sum(1 for d in self.records("directive")
                     if d.fields.get("origin") == "DT" and d.fields.get("handoff") == fields["handoff"])
         limit = self.limits()["dt_directives_per_handoff"]
@@ -555,6 +614,18 @@ class Store:
     def _check_verdict(self, fields: dict[str, Any], resolve, errors: list[str]) -> str:
         handoff = resolve(fields["handoff"], "handoff")
         subject = fields["subject"]
+        if fields["phase"] == "DESIGN":
+            if not handoff:
+                return "NOT_VALID"
+            if handoff.fields["status"] != "DRAFT":
+                errors.append("a DESIGN verdict reviews a DRAFT handoff, before the researcher approves it")
+            if handoff.fields["authorization"] not in ("VALIDATION_RUN", "FULL_RUN"):
+                errors.append("a DESIGN verdict reviews a VALIDATION_RUN or FULL_RUN handoff")
+            given = {g["id"] for g in fields["gates"]}
+            if given != set(DESIGN_CHECKS):
+                errors.append(f"a DESIGN verdict has exactly the checks {sorted(DESIGN_CHECKS)}, got {sorted(given)}")
+            valid = given == set(DESIGN_CHECKS) and all(g["verdict"] == "VALID" for g in fields["gates"])
+            return "VALID" if valid else "NOT_VALID"
         if subject["report"] != NONE:
             resolve(subject["report"], "report")
         for ref in subject["results"]:

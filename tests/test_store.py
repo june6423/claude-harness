@@ -399,19 +399,66 @@ class StoreTest(unittest.TestCase):
         validation = dict(full, execution_class="VALIDATION", pre_run_verdict="NONE", directive=directive.ref)
         validation.pop("pilot")
         self.store.publish("task", json.dumps(validation), "ET")
-        # it must name the latest APPROVED revision
+        # it must name the latest APPROVED revision; a DRAFT revision that waits for the design review (D33)
+        # does not end the directives of the APPROVED revision that runs
         second = self.store.publish("handoff", edit_markdown(
             fixture("handoff_transplant.md"), revision=2, predecessor=handoff.ref, status="DRAFT",
             approval="NONE"), "DT")
-        self.assertRefused("directive", markdown(front), "must name the latest handoff revision", "DT")
+        self.store.publish("directive", markdown(front, "Pin the judge package again.\n"), "DT")
         self.assertRefused("directive", markdown(dict(front, handoff=second.ref)), "needs an APPROVED handoff", "DT")
         # the count is limited for each revision
         os.chmod(self.root / "config.json", 0o644)
         (self.root / "config.json").write_text(json.dumps({"limits": {"dt_directives_per_handoff": 1}}))
         third = self.store.publish("handoff", edit_markdown(
             fixture("handoff_transplant.md"), revision=3, predecessor=second.ref), "DT")
+        self.assertRefused("directive", markdown(front), "must name the latest APPROVED handoff revision", "DT")
         self.store.publish("directive", markdown(dict(front, handoff=third.ref)), "DT")
         self.assertRefused("directive", markdown(dict(front, handoff=third.ref)), "dt_directives_per_handoff", "DT")
+
+    def design_verdict(self, handoff, failed=(), gates=("DQ1", "DQ2", "DQ3", "DQ4", "DQ5")):
+        front = {"kind": "verdict", "phase": "DESIGN", "handoff": handoff.ref,
+                 "subject": {"commit": "NONE", "report": "NONE", "results": []},
+                 "gates": [{"id": g, "verdict": "INVALID" if g in failed else "VALID",
+                            "evidence": [f"{g}: reading of the handoff"]} for g in gates]}
+        return markdown(front, "## Findings\n\nThe arms differ in the view count and the diversity.\n")
+
+    def test_design_review_before_approval(self):
+        os.chmod(self.root / "config.json", 0o644)
+        (self.root / "config.json").write_text(json.dumps({"design_review": True}))
+        text = fixture("handoff_transplant.md")
+        self.assertRefused("handoff", text, "needs 'design_verdict'")
+        draft = self.store.publish("handoff", edit_markdown(text, status="DRAFT", approval="NONE"), "DT")
+        self.assertRefused("verdict", self.design_verdict(draft, gates=("DQ1", "DQ2")), "exactly the checks", "VT")
+        self.assertRefused("verdict", self.design_verdict(draft, gates=("G1",)), "a DESIGN verdict has the checks", "VT")
+        failed = self.store.publish("verdict", self.design_verdict(draft, failed=("DQ2", "DQ4")), "VT")
+        self.assertEqual(failed.fields["overall"], "NOT_VALID")
+        front, body = parse("handoff", text)
+        approved = dict(front, revision=2, predecessor=draft.ref, design_verdict=failed.ref)
+        decided = body + "\n## Researcher decisions\n\nThe researcher keeps the design.\n"
+        self.assertRefused("handoff", markdown(approved, decided), "is NOT_VALID")
+        self.assertRefused("handoff", markdown(dict(approved, design_override="알고 진행한다."), body + "\n## Extra arm\n\nC.\n"),
+                           "the design changed after the review")
+        second = self.store.publish("handoff", markdown(dict(approved, design_override="알고 진행한다."), decided), "DT")
+        self.assertEqual(second.fields["status"], "APPROVED")
+        # a VT design verdict reviews only a DRAFT of a run handoff
+        self.assertRefused("verdict", self.design_verdict(second), "reviews a DRAFT handoff", "VT")
+        # a correction revision keeps the design review of its predecessor
+        correction = dict(approved, revision=3, predecessor=second.ref, approval="CORRECTION",
+                          design_override="알고 진행한다.")
+        fixed = decided + "\n## Correction\n\nA wrong number.\n"
+        self.assertRefused("handoff", markdown(dict(correction, design_verdict="NONE"), fixed), "must keep 'design_verdict'")
+        self.store.publish("handoff", markdown(correction, fixed), "DT")
+        # a new design: a new DRAFT, a VALID review, then an approval without an override
+        changed = body + "\n## Extra arm\n\nSame view count, low diversity.\n"
+        draft2 = self.store.publish("handoff", markdown(dict(front, revision=4, predecessor=self.store.latest_handoff(
+            front["experiment_id"]).ref, status="DRAFT", approval="NONE"), changed), "DT")
+        valid = self.store.publish("verdict", self.design_verdict(draft2), "VT")
+        self.assertEqual(valid.fields["overall"], "VALID")
+        self.store.publish("handoff", markdown(dict(front, revision=5, predecessor=draft2.ref, design_verdict=valid.ref),
+                                               changed + "\n## Design review\n\nVT found no defect.\n"), "DT")
+        # IMPLEMENT_ONLY needs no design review
+        self.store.publish("handoff", markdown(dict(front, experiment_id="VLM-OTHER-001", authorization="IMPLEMENT_ONLY",
+                                                    gates=[g for g in front["gates"] if g["phase"] == "POST_RUN"]), body), "DT")
 
     def test_post_run_verdict_without_results_only_for_implement_only(self):
         handoff = self.publish_handoff()  # FULL_RUN

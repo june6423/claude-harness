@@ -104,16 +104,23 @@ def check_publish(event: dict) -> int:
     approval = normalize(str(fields.get(field, "")))
     if not approval or approval == "NONE":
         return 0  # the CLI refuses the draft itself
+    # D33: the researcher's acceptance of a NOT_VALID design verdict is researcher text too.
+    checks = [(field, approval)]
+    override = normalize(str(fields.get("design_override", "NONE"))) if kind == "handoff" else "NONE"
+    if override and override != "NONE":
+        checks.append(("design_override", override))
     try:
         messages = researcher_messages(event["transcript_path"])
     except (KeyError, OSError) as error:
         return block(f"cannot read the session transcript to check the '{field}' text ({error}). "
                      f"Ask the researcher to publish the {kind} with --actor RESEARCHER.")
-    if any(approval in normalize(message) for message in messages):
-        return 0
-    return block(f"the '{field}' text does not occur verbatim in any message that the researcher typed "
-                 f"in this session. Only the researcher can authorize a {kind}. Ask the researcher, "
-                 "then copy the words verbatim.")
+    for name, text in checks:
+        if not any(text in normalize(message) for message in messages):
+            return block(f"the '{name}' text does not occur verbatim in any message that the researcher typed "
+                         f"in this session. Only the researcher can authorize a {kind}"
+                         + (" or accept the findings of a design verdict" if name == "design_override" else "")
+                         + ". Ask the researcher, then copy the words verbatim.")
+    return 0
 
 
 def check_state(event: dict) -> int:

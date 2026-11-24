@@ -26,6 +26,16 @@ GATE_ID_RE = re.compile(r"^G[0-9]+$")
 STATUSES = ("DRAFT", "APPROVED")
 AUTHORIZATIONS = ("IMPLEMENT_ONLY", "VALIDATION_RUN", "FULL_RUN")
 PHASES = ("PRE_RUN", "POST_RUN")
+# A DESIGN verdict (researcher decision 2026-11-24, D33): VT reviews the experiment design of a DRAFT handoff
+# before the researcher approves it. Its checks are fixed, not gates that DT writes.
+VERDICT_PHASES = PHASES + ("DESIGN",)
+DESIGN_CHECKS = {
+    "DQ1": "Each hypothesis has a measurement of the quantity that the hypothesis is about, and a decision rule.",
+    "DQ2": "The arms differ only in the variable that the question is about, or each other difference is controlled.",
+    "DQ3": "A control or an ablation separates the proposed cause from the other causes of the same result.",
+    "DQ4": "The measured setting is the setting that the next step and the claims of the plan use.",
+    "DQ5": "The plan states which result refutes each hypothesis, the alternative explanations, and enough samples.",
+}
 GATE_VERDICTS = ("VALID", "PARTIAL", "INVALID", "NOT_VERIFIABLE")
 FULL_RUN_CONDITIONS = (NONE, "ALL_PRE_RUN_GATES_VALID")
 SOURCES = ("HANDOFF", "USER")
@@ -213,8 +223,12 @@ def _common(checker: Checker, kind: str) -> None:
 def validate_handoff(fields: dict[str, Any], body: str) -> list[str]:
     c = Checker(fields)
     c.keys(("kind", "experiment_id", "revision", "predecessor", "status", "authorization",
-            "approval", "gates", "full_run_condition"), ("id",))
+            "approval", "gates", "full_run_condition"), ("id", "design_verdict", "design_override"))
     _common(c, "handoff")
+    if "design_verdict" in fields:
+        c.ref("design_verdict", allow_none=True)
+    if "design_override" in fields:
+        c.text("design_override", allow_none=True)
     c.pattern("experiment_id", EXPERIMENT_RE, "an upper-case experiment ID")
     c.integer("revision", 1)
     c.ref("predecessor", allow_none=True)
@@ -497,7 +511,7 @@ def validate_verdict(fields: dict[str, Any], body: str) -> list[str]:
     c = Checker(fields)
     c.keys(("kind", "phase", "handoff", "subject", "gates"), ("id", "overall"))
     _common(c, "verdict")
-    c.choice("phase", PHASES)
+    c.choice("phase", VERDICT_PHASES)
     c.ref("handoff")
     subject = fields.get("subject")
     if "subject" in fields:
@@ -525,7 +539,11 @@ def validate_verdict(fields: dict[str, Any], body: str) -> list[str]:
                     g.error("must be an object")
                 else:
                     g.keys(("id", "verdict", "evidence"))
-                    g.pattern("id", GATE_ID_RE, "G<number>")
+                    if fields.get("phase") == "DESIGN":
+                        if gate.get("id") not in DESIGN_CHECKS:
+                            g.error(f"a DESIGN verdict has the checks {', '.join(DESIGN_CHECKS)}")
+                    else:
+                        g.pattern("id", GATE_ID_RE, "G<number>")
                     g.choice("verdict", GATE_VERDICTS)
                     g.string_list("evidence", non_empty=True)
                     if gate.get("id") in seen:

@@ -235,11 +235,16 @@ Rules 57 to 69 come from the researcher review of 2026-11-02: too many questions
 ## Design review by VT (researcher decision 2026-11-24, D33)
 
 75. A VALIDATION_RUN or FULL_RUN handoff needs a DESIGN verdict of VT before the researcher approves it. The harness refuses an APPROVED revision without `design_verdict`.
-76. Write the design in the DRAFT so that VT can check it. Use these sections:
-   1. `## Hypotheses and measurements`: each hypothesis, the quantity that you measure for it, the decision rule, and the result that refutes it.
-   2. `## Arms and controls`: each difference between the arms, and how the plan holds it equal or controls it.
-   3. `## Use of the result`: the next step that uses the result, and the setting of that step.
-   4. `## Basis`: each earlier result or analysis that the design uses, with its record or document. Mark each analysis that no VT verdict covered as "unreviewed", such as an analysis that you did after a run.
+76. Write the DRAFT body in two parts, so that VT can give the procedure alone to a blind reader (VT rules 54 to 56). The harness refuses a VALIDATION_RUN or FULL_RUN handoff without them.
+   1. `# Intent` has these sections:
+      1. `## Question and direct measurement`: each hypothesis, and the measurement that answers it most directly.
+      2. `## Interpretation`: in words, which pattern of results supports or weakens each hypothesis.
+      3. `## Use of the result`: the next step and its setting.
+      4. `## Basis`: each earlier analysis that the design uses. Mark it "unreviewed" when no VT verdict covered it.
+      Put `## Researcher decisions`, `## Change in R<n>`, and `## Design review` in this part too.
+   2. `# Procedure`: what the experiment does: the conditions, the measurements, the data, the settings, the tasks, and the outputs. Do not write the question, a hypothesis, an expected result, or a reason in this part.
+   A numeric threshold before the run is not necessary.
+76a. Before you choose the conditions, discuss the direct measurement of each hypothesis with the researcher. Discuss which quantity, compared with what, and from which starting point. Also discuss the inputs and the part of training. The conditions follow from the direct measurement, not from the code that exists.
 77. Publish the design as a DRAFT revision (`status` DRAFT, `approval` NONE). Send REVIEW_REQUEST to vt with its reference. Wait for VERDICT_READY. The APPROVED revision that runs stays in force while the DRAFT waits.
 78. When the DESIGN verdict has a PARTIAL or INVALID check, fix each defect that is your own fault (rule 59a). Put the fix in a new DRAFT revision and ask for a new review. Give each other finding to the researcher in Korean, with your recommendation (rule 66). Do not argue a finding away in the handoff.
 79. Show the researcher the DESIGN verdict together with the draft. Then publish the APPROVED revision with `design_verdict` set to the verdict reference. In that revision, change only the sections `## Researcher decisions`, `## Change in R<n>`, and `## Design review`. Any other change needs a new DRAFT revision and a new review.

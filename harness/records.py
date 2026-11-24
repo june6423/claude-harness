@@ -29,13 +29,38 @@ PHASES = ("PRE_RUN", "POST_RUN")
 # A DESIGN verdict (researcher decision 2026-11-24, D33): VT reviews the experiment design of a DRAFT handoff
 # before the researcher approves it. Its checks are fixed, not gates that DT writes.
 VERDICT_PHASES = PHASES + ("DESIGN",)
-DESIGN_CHECKS = {
-    "DQ1": "Each hypothesis has a measurement of the quantity that the hypothesis is about, and a decision rule.",
-    "DQ2": "The arms differ only in the variable that the question is about, or each other difference is controlled.",
-    "DQ3": "A control or an ablation separates the proposed cause from the other causes of the same result.",
-    "DQ4": "The measured setting is the setting that the next step and the claims of the plan use.",
-    "DQ5": "The plan states which result refutes each hypothesis, the alternative explanations, and enough samples.",
+DESIGN_CHECKS = {  # researcher decision 2026-11-24: V1 and V2 (DESIGN §32.10); no pre-registered numbers
+    "DQ1": "V1: a blind reading of the procedure finds the question and the hypotheses that the plan states.",
+    "DQ2": "V2: the plan measures the quantity that each hypothesis is about and answers the question directly.",
+    "DQ3": "V2: the compared conditions isolate the proposed cause; no other difference explains the result alone.",
+    "DQ4": "V2: the measured setting is the setting that the next step and the claims of the plan use.",
+    "DQ5": "V2: the plan says in words which pattern of results supports or weakens each hypothesis.",
 }
+# Fixed PRE_RUN checks for a handoff that had a design review (V3 and V4): VT adds them to the gates of DT.
+PRE_RUN_CHECKS = {
+    "PC1": "V3: a blind reading of the code finds the experiment of the approved procedure.",
+    "PC2": "V4: each item of the procedure has code that does it, and no code defect changes a result.",
+}
+# A VALIDATION_RUN or FULL_RUN handoff body has an intent part and a procedure part, so that VT can give the
+# procedure alone to a blind subagent (V1). The procedure says what the experiment does, not why.
+INTENT_HEADING, PROCEDURE_HEADING = "# Intent", "# Procedure"
+
+
+def body_parts(body: str) -> tuple[str | None, str | None]:
+    """(intent, procedure) of a handoff body: the text under the lines '# Intent' and '# Procedure'. Each part
+    ends at the next '# ' heading. None for a missing part."""
+    parts: dict[str, list[str]] = {}
+    current = None
+    for line in body.splitlines():
+        if line.startswith("# "):
+            current = line.strip() if line.strip() in (INTENT_HEADING, PROCEDURE_HEADING) else None
+            if current:
+                parts.setdefault(current, [])
+            continue
+        if current:
+            parts[current].append(line)
+    get = lambda h: "\n".join(parts[h]).strip() if h in parts else None  # noqa: E731
+    return get(INTENT_HEADING), get(PROCEDURE_HEADING)
 GATE_VERDICTS = ("VALID", "PARTIAL", "INVALID", "NOT_VERIFIABLE")
 FULL_RUN_CONDITIONS = (NONE, "ALL_PRE_RUN_GATES_VALID")
 SOURCES = ("HANDOFF", "USER")
@@ -542,7 +567,7 @@ def validate_verdict(fields: dict[str, Any], body: str) -> list[str]:
                     if fields.get("phase") == "DESIGN":
                         if gate.get("id") not in DESIGN_CHECKS:
                             g.error(f"a DESIGN verdict has the checks {', '.join(DESIGN_CHECKS)}")
-                    else:
+                    elif not (fields.get("phase") == "PRE_RUN" and gate.get("id") in PRE_RUN_CHECKS):
                         g.pattern("id", GATE_ID_RE, "G<number>")
                     g.choice("verdict", GATE_VERDICTS)
                     g.string_list("evidence", non_empty=True)

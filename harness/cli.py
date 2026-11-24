@@ -101,6 +101,14 @@ def cmd_show(args) -> int:
         headings = [line[3:].strip() for line in record.body.splitlines() if line.startswith("## ")]
         if headings:
             print("sections: " + " | ".join(headings))
+    elif args.procedure:
+        from .records import body_parts
+        procedure = body_parts(record.body)[1]
+        if procedure is None:
+            raise RecordError(f"{record_id} has no '# Procedure' part")
+        # Only what the experiment does: no gates, no intent part, no approval text (a blind reader, VT rule V1).
+        print(f"{record.fields.get('experiment_id')} revision {record.fields.get('revision')} "
+              f"({record.fields.get('authorization')})\n\n# Procedure\n\n{procedure}")
     elif args.section:
         text = Store._section(record.body, args.section)
         if text is None:
@@ -413,6 +421,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--ref-only", action="store_true")
     p.add_argument("--front", action="store_true", help="only the reference, the front matter, and the section names")
     p.add_argument("--section", help="only the '## ' section whose heading starts with this text")
+    p.add_argument("--procedure", action="store_true",
+                   help="only the procedure part of a handoff, for a blind design review (no intent, no gates)")
     p.set_defaults(func=cmd_show)
 
     p = sub.add_parser("list", help="list records")

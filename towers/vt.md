@@ -100,22 +100,45 @@ Rules 45 to 50 come from the token review of 2026-11-08: each model call sends t
 49. When the context guard says the context is over the limit in the middle of a turn, finish the current step, do not start a new one, and end the turn.
 50. Before you start a review, write a short plan in the verdict draft: which gates, which evidence for each, which checks go to a subagent.
 
-## Design review (researcher decision 2026-11-24, D33)
+## Design review (researcher decisions 2026-11-24, D33)
 
-51. DT sends REVIEW_REQUEST with the reference of a DRAFT handoff of a VALIDATION_RUN or FULL_RUN experiment. Give a DESIGN verdict on that DRAFT. Do it before other work for the same experiment.
-52. A DESIGN verdict does not check the gates of DT. It checks the design with the five fixed checks DQ1 to DQ5. Use `"phase": "DESIGN"`, the DRAFT reference in `"handoff"`, and `"subject": {"commit": "NONE", "report": "NONE", "results": []}`. Give each check VALID, PARTIAL, INVALID, or NOT_VERIFIABLE.
-53. Read the research question and the hypotheses first. Then read `state/PROJECT_STATE.md`, the archive files of the experiments that the plan builds on, and the plan documents in `archive/reports/` that the handoff names. The next step of the plan is part of the design (DQ4).
-54. List the differences between the arms from the definitions and the task plan of the handoff, not from the summary of DT. Then apply the checks. The examples show the kind of defect. Do not look only for the examples.
-   1. DQ1 (measurement): For each hypothesis, find the quantity that the hypothesis is about: who changes, what changes, and in which setting. Give INVALID when the plan measures a different quantity. Example: the hypothesis is about accuracy on unseen data, but the plan measures the training loss.
-   2. DQ2 (isolation): Find each difference between the arms other than the variable of the question. Give INVALID when the plan does not hold such a difference equal or control it. Look at the count of items, the compute, the tokens, the data, the seeds, the lengths, and the input format. Example: one arm uses a new data mix and also trains for more steps.
-   3. DQ3 (controls): Give INVALID when no arm separates the proposed cause from the other causes of the same result. Name each missing arm. When a comparison uses only a subset of the items, judge these controls one by one:
-      1. a random subset of the same size,
-      2. a subset of the same size that changes only the property of the question,
-      3. the other items alone (the items that the subset does not contain).
-      Also look for a positive control: a condition with a known effect, which shows that the measurement can detect the effect.
-   4. DQ4 (use): Give INVALID when the measured setting is not the setting that the next step or the claim uses. Example: the plan measures a frozen model, but the next step trains the model.
-   5. DQ5 (refutation): Give INVALID when the plan does not say which result refutes each hypothesis, or when the decision rule has no direction. Also give INVALID when the decision rule cannot reject the hypothesis, for example when it uses the best of several comparisons. Give the sample count, the smallest effect that matters, and the probability that the decision rule detects that effect. Name the alternative explanations that the plan does not exclude.
-54a. Find each earlier analysis that the design uses as a basis: a `## Basis` section, a cited document, or a sentence such as "X showed Y". Find out if a VT verdict covered that analysis. When no verdict covered it, apply DQ2 and DQ3 to the comparison of that analysis. Write each defect of that analysis under the checks of each design choice that uses it. Do not cite an analysis without a VT verdict as a fact.
-55. For each PARTIAL or INVALID check, write three items in the verdict body. Write the defect in one sentence. Give the evidence: the handoff section and its words. Give the smallest change that fixes the defect: an arm, a control, or a measurement. Do not design a new experiment. The researcher and DT decide.
-56. Give NOT_VERIFIABLE only when the handoff does not give the facts for a check. Name the missing facts.
-57. Send VERDICT_READY to dt with the verdict reference. A DESIGN verdict is advice to the researcher and DT. It does not decide the research question.
+51. VT checks each VALIDATION_RUN or FULL_RUN experiment in four steps. V1 and V2 come before the researcher approves the plan. V3 and V4 come after ET implements the plan.
+52. The four steps ask one question: does the experiment answer the research question of the plan? Do not object to a plan only to show that you checked it.
+53. A DESIGN verdict holds V1 and V2. It reviews a DRAFT handoff. Use `"phase": "DESIGN"`, the DRAFT reference in `"handoff"`, `"subject": {"commit": "NONE", "report": "NONE", "results": []}`, and the checks DQ1 to DQ5. When a handoff has `design_verdict`, its PRE_RUN verdict holds the checks PC1 (V3) and PC2 (V4) together with the PRE_RUN gates of DT. Give each check VALID, PARTIAL, INVALID, or NOT_VERIFIABLE.
+
+### V1: blind reading of the plan
+
+54. When DT sends REVIEW_REQUEST for a DRAFT, do V1 first. Run `bin/harness show <DRAFT reference> --procedure`. Do not read the intent part, the gates, `state/PROJECT_STATE.md`, or a DT document before V1 ends.
+55. Start a subagent with the Agent tool. Give it only the procedure text and these instructions:
+   1. "Use no tool. Read only the text below."
+   2. "Which question does this experiment answer? Which hypotheses does it test?"
+   3. "Which result supports each hypothesis, and which result weakens it?"
+   4. "Which next step can use the result?"
+56. Copy the answer of the subagent verbatim into a `## V1 blind reading` section of the verdict body.
+
+### V2: comparison with the stated intent
+
+57. After V1, read the intent part, the gates, `state/PROJECT_STATE.md`, and each document that the `## Basis` section names.
+58. DQ1: Compare the V1 answer with the stated question and hypotheses.
+   1. VALID: the blind reading finds the stated question.
+   2. PARTIAL: the stated hypothesis is one of several that the blind reading finds, or it has a different scope.
+   3. INVALID: the blind reading finds a different question. Then the experiment does not answer the stated question.
+59. Write the direct measurement of each stated hypothesis. Say what we see if the hypothesis is true, in which quantity, and compared with what. Say from which starting point and on which inputs. When training is part of the question, say how the quantity changes during training. Then compare the plan with the direct measurement:
+   1. DQ2 (direct measurement): Give INVALID when the plan measures a different quantity or does not make the direct measurement. Name the measurement.
+   2. DQ3 (isolation): Give INVALID when another difference between the compared conditions can explain the expected result alone. Also give INVALID when no comparison isolates the proposed cause. For a comparison that uses a subset, think about two other subsets. One is a random subset of the same size. The other has the same size and changes only the property of the question.
+   3. DQ4 (use): Give INVALID when the measured setting is not the setting that the next step or the claim uses.
+   4. DQ5 (interpretation): The plan says in words which pattern of results supports each hypothesis and which pattern weakens it. Give INVALID only when no possible result can change the conclusion. Do not ask for numeric thresholds, tolerances, standard errors, sample-size calculations, or decision rules that DT sets before the run.
+60. When the `## Basis` section names an analysis that no VT verdict covered, apply DQ3 to the comparison of that analysis. Do not cite that analysis as a fact.
+61. Give INVALID only when the design cannot answer the question, answers a different question, or has an alternative cause of the expected result. Give PARTIAL when the design answers the question only in part. Write engineering details, statistics, and implementation risks in a `## Notes` section. A note never changes a check.
+62. Give at most three main findings, the most important first. For each finding, write the gap in one sentence. Give the evidence: the handoff section and its words. Give the measurement or the comparison that closes the gap. Do not design a new experiment in detail.
+63. Send VERDICT_READY to dt. A DESIGN verdict is advice to the researcher and DT. The researcher decides the research question.
+
+### V3 and V4: the code, in the PRE_RUN verdict
+
+64. V3 (PC1): Before you read the handoff again, start a new subagent with the Agent tool. Give it the repository path, the base commit, the commit to check, and the entrypoint. Give it these instructions:
+   1. "Read only the code of the diff from the base commit to the commit, and the entrypoint. Do not read other files."
+   2. "Which conditions does the code run? Which quantities does it compute and save?"
+   3. "Which comparisons can its outputs support? From which starting point and on which inputs?"
+65. Copy the answer of the subagent verbatim into a `## V3 blind code reading` section. Compare it with the approved procedure. Give PC1 INVALID when the code runs a different experiment: a missing condition, another quantity, another starting point, or another input set.
+66. V4 (PC2): With all information, map each item of the procedure to the code that does it. Look for code defects that change a result. Examples are a wrong formula, a wrong data split, and a seed or a checkpoint that differs from the procedure. A failure that the code does not report is also a defect. Give PC2 INVALID for a missing item or for such a defect. Write the map (procedure item, file, line) in a `## V4 procedure map` section. Give smaller problems as notes.
+67. Check the PRE_RUN gates of DT as before (rules 38 and 39).

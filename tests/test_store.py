@@ -1,11 +1,15 @@
 import copy
+import io
 import json
 import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from harness import journal
+from harness.cli import main
 from harness.records import RecordError, compute_outcome, parse, parse_ref, serialize
 from harness.store import Store, init_data_root
 
@@ -425,8 +429,12 @@ class StoreTest(unittest.TestCase):
     def test_design_review_before_approval(self):
         os.chmod(self.root / "config.json", 0o644)
         (self.root / "config.json").write_text(json.dumps({"design_review": True}))
-        text = fixture("handoff_transplant.md")
+        plain = fixture("handoff_transplant.md")
+        front0, raw = parse("handoff", plain)
+        text = markdown(front0, "# Intent\n\n## Question and direct measurement\n\nDoes the native base condition "
+                                "raise the score?\n\n# Procedure\n\n" + raw)
         self.assertRefused("handoff", text, "needs 'design_verdict'")
+        self.assertRefused("handoff", edit_markdown(plain, status="DRAFT", approval="NONE"), "needs a '# Intent' part")
         draft = self.store.publish("handoff", edit_markdown(text, status="DRAFT", approval="NONE"), "DT")
         self.assertRefused("verdict", self.design_verdict(draft, gates=("DQ1", "DQ2")), "exactly the checks", "VT")
         self.assertRefused("verdict", self.design_verdict(draft, gates=("G1",)), "a DESIGN verdict has the checks", "VT")
@@ -454,8 +462,23 @@ class StoreTest(unittest.TestCase):
             front["experiment_id"]).ref, status="DRAFT", approval="NONE"), changed), "DT")
         valid = self.store.publish("verdict", self.design_verdict(draft2), "VT")
         self.assertEqual(valid.fields["overall"], "VALID")
-        self.store.publish("handoff", markdown(dict(front, revision=5, predecessor=draft2.ref, design_verdict=valid.ref),
-                                               changed + "\n## Design review\n\nVT found no defect.\n"), "DT")
+        reviewed = self.store.publish("handoff", markdown(
+            dict(front, revision=5, predecessor=draft2.ref, design_verdict=valid.ref),
+            changed + "\n## Design review\n\nVT found no defect.\n"), "DT")
+        # a handoff with a design review gets the fixed PRE_RUN checks PC1 (V3) and PC2 (V4)
+        pre = fixture("verdict_pre_run.md", HANDOFF_REF=reviewed.ref)
+        self.assertRefused("verdict", pre, "verdict gates must be exactly the PRE_RUN gates", "VT")
+        vfront, vbody = parse("verdict", pre)
+        vfront["gates"] += [{"id": c, "verdict": "VALID", "evidence": [f"{c} reading"]} for c in ("PC1", "PC2")]
+        self.assertEqual(self.store.publish("verdict", markdown(vfront, vbody), "VT").fields["overall"], "VALID")
+        # the procedure view for the blind reader has no intent part and no gates
+        out = io.StringIO()
+        with mock.patch.object(sys, "stdout", out):
+            self.assertEqual(main(["--data-root", str(self.root), "show", reviewed.record_id, "--procedure"]), 0)
+        self.assertIn("# Procedure", out.getvalue())
+        self.assertIn("Same view count", out.getvalue())
+        self.assertNotIn("Does the native base condition", out.getvalue())
+        self.assertNotIn(front["gates"][0]["check"], out.getvalue())
         # IMPLEMENT_ONLY needs no design review
         self.store.publish("handoff", markdown(dict(front, experiment_id="VLM-OTHER-001", authorization="IMPLEMENT_ONLY",
                                                     gates=[g for g in front["gates"] if g["phase"] == "POST_RUN"]), body), "DT")

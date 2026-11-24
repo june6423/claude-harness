@@ -15,7 +15,8 @@ from typing import Any, Iterator
 
 from . import journal
 from .records import (
-    DESIGN_CHECKS, EXECUTION_MODES, KINDS, NONE, RecordError, extension, kind_of_id, make_ref, parse, parse_ref,
+    DESIGN_CHECKS, EXECUTION_MODES, INTENT_HEADING, KINDS, NONE, PRE_RUN_CHECKS, PROCEDURE_HEADING, RecordError,
+    body_parts, extension, kind_of_id, make_ref, parse, parse_ref,
     serialize, sha256_bytes, split_front_matter, validate,
 )
 
@@ -369,6 +370,14 @@ class Store:
             elif (fields.get("status") == "APPROVED" and fields.get("authorization") in ("VALIDATION_RUN", "FULL_RUN")
                   and self.config().get("design_review", self.DESIGN_REVIEW_DEFAULT)):
                 self._check_design(fields, body, resolve, errors)
+            if (fields.get("authorization") in ("VALIDATION_RUN", "FULL_RUN") and fields.get("approval") != "CORRECTION"
+                    and self.config().get("design_review", self.DESIGN_REVIEW_DEFAULT)):
+                intent, procedure = body_parts(body)
+                if not intent or not procedure or body.index(INTENT_HEADING) > body.index(PROCEDURE_HEADING):
+                    errors.append(f"a VALIDATION_RUN or FULL_RUN handoff body needs a '{INTENT_HEADING}' part (the "
+                                  f"question, the hypotheses, the interpretation, the basis, the use of the result) "
+                                  f"and then a '{PROCEDURE_HEADING}' part (what the experiment does, not why). "
+                                  "VT gives the procedure part alone to a blind reviewer (DT rule 76)")
         elif kind == "task":
             self._check_task(fields, resolve, errors)
         elif kind == "result":
@@ -640,6 +649,8 @@ class Store:
             elif subject["report"] == NONE:
                 errors.append("a POST_RUN verdict without results needs a report")
         expected = {g["id"] for g in handoff.fields["gates"] if g["phase"] == fields["phase"]}
+        if fields["phase"] == "PRE_RUN" and handoff.fields.get("design_verdict", NONE) != NONE:
+            expected |= set(PRE_RUN_CHECKS)  # V3 and V4 for a handoff that had a design review
         given = {g["id"] for g in fields["gates"]}
         if not expected:
             errors.append(f"the handoff has no {fields['phase']} gates")

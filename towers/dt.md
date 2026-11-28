@@ -112,6 +112,7 @@ refs: <reference>, ... | NONE
 
 25. After you publish an APPROVED handoff, send HANDOFF_READY to `et` with the handoff reference.
 26. You can read fetched outputs in `<data-root>/artifacts/`. Accept a result only with a VALID POST_RUN verdict from VT (rule 8 and decision D5).
+26a. To wait for the result of a task, run `bin/harness wait <task-id> --timeout-minutes <minutes>` alone in a Bash call with `run_in_background`. Then end the turn. The harness can rotate a session that waits in the background.
 
 ## Planning workflow with the researcher
 

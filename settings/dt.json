@@ -26,6 +26,7 @@
       "Edit(/{{DATA_ROOT}}/state/PROJECT_STATE.md)",
       "Bash(bin/harness publish handoff * --actor DT)",
       "Bash(bin/harness handoff-draft *)",
+      "Bash(bin/harness wait *)",
       "Bash(bin/harness status)",
       "Bash(bin/harness status *)",
       "Bash(bin/harness publish directive * --actor DT)",

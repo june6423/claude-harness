@@ -569,6 +569,14 @@ class ForkTest(unittest.TestCase):
         self.assertIn(f"Edit(/{self.root}/worklog/dt2.md)", allow)
         self.assertIn("Bash(bin/harness handover dt2 *)", allow)
 
+    def test_dt_may_wait_for_a_task_and_the_forks_may_not(self):
+        from harness import tower
+        allow = json.loads(tower.render_settings("dt", self.root).read_text())["permissions"]["allow"]
+        self.assertIn("Bash(bin/harness wait *)", allow)
+        for fork in ("dt2", "dt3"):
+            allow = json.loads(tower.render_settings(fork, self.root).read_text())["permissions"]["allow"]
+            self.assertFalse([r for r in allow if "harness wait" in r], fork)  # DT2 rule D7: no waits
+
     def test_dt3_is_a_slide_fork_of_dt2(self):
         from harness import tower
         self.assertEqual(tower.lineage("dt3"), ["dt", "dt2", "dt3"])
